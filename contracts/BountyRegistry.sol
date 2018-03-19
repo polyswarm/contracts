@@ -1,0 +1,1 @@
+/home/user/go/src/github.com/polyswarm/polyswarm/contracts/BountyRegistry.sol

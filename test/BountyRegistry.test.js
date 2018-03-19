@@ -1,0 +1,106 @@
+import ether from './helpers/ether';
+import { advanceBlock } from './helpers/advanceToBlock';
+import EVMRevert from './helpers/EVMRevert';
+import utils from 'ethereumjs-util';
+
+const BigNumber = web3.BigNumber;
+
+require('chai')
+  .use(require('chai-as-promised'))
+  .use(require('chai-bignumber')(BigNumber))
+  .should();
+
+const BountyRegistry = artifacts.require('BountyRegistry');
+const NectarToken = artifacts.require('NectarToken');
+
+const IpfsReadme = 'QmPZ9gcCEpqKTo6aq61g2nXGUhM4iCL3ewB6LDXZCtioEB';
+const BountyFee = ether(0.0625);
+const AssertionFee = ether(0.0625);
+const BountyMin = ether(0.0625);
+const AssertionMin = ether(0.0625);
+
+function randomGuid() {
+  return utils.bufferToHex(utils.sha3(utils.toBuffer(Math.random() * (1 << 30)))).substring(0, 34);
+}
+
+async function postBounty(token, bountyregistry, from, amount, url, duration) {
+  let guid = randomGuid();
+  await token.approve(bountyregistry.address, amount + BountyFee, { from });
+  let tx = await bountyregistry.postBounty(guid, amount, url, duration, { from });
+  return tx.logs[0].args.guid;
+}
+
+async function postAssertion(token, bountyregistry, from, bountyGuid, bid, mask, verdicts, metadata) {
+  await token.approve(bountyregistry.address, bid + AssertionFee, { from });
+  let tx = await bountyregistry.postAssertion(bountyGuid, bid, mask, verdicts, metadata, { from });
+  return tx.logs[0].args.index;
+}
+
+contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
+  before(async function () {
+    // Advance to the next block to correctly read time in the solidity "now" function interpreted by testrpc
+    await advanceBlock();
+  });
+
+  beforeEach(async function () {
+    this.token = await NectarToken.new();
+
+    await [owner, user, expert0, expert1, arbiter].forEach(async account => {
+      await this.token.mint(account, ether(1000));
+    });
+
+    await this.token.enableTransfers();
+
+    this.bountyregistry = await BountyRegistry.new(this.token.address);
+
+    await this.bountyregistry.addArbiter(arbiter);
+  });
+
+  describe('token', function() {
+    it('should allocate 1000NCT to each participant', async function() {
+      await [owner, user, expert0, expert1, arbiter].forEach(async account => {
+        let balance = await this.token.balanceOf(account);
+        balance.should.be.bignumber.equal(ether(1000));
+      });
+    });
+
+    it('should allow transfering NCT between accounts', async function() {
+      await this.token.transfer(user, ether(10));
+      let ownerBalance = await this.token.balanceOf(owner);
+      ownerBalance.should.be.bignumber.equal(ether(990));
+      let userBalance = await this.token.balanceOf(user);
+      userBalance.should.be.bignumber.equal(ether(1010));
+    });
+  });
+
+  describe('bounty', function() {
+    it('should allow users to post bounties', async function() {
+      let amount = ether(10);
+      let guid = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+
+      let userBalance = await this.token.balanceOf(user);
+      userBalance.should.be.bignumber.equal(ether(1000) - amount - BountyFee);
+      let numBounties = await this.bountyregistry.getNumberOfBounties();
+      numBounties.should.be.bignumber.equal(1);
+      let bounty = await this.bountyregistry.bountiesByGuid(guid);
+      bounty[0].should.be.bignumber.equal(guid);
+    });
+  });
+
+  describe('assertion', function() {
+    it('should allow users to post assertions', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+      let guid = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let index = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo");
+
+      let expert0Balance = await this.token.balanceOf(expert0);
+      expert0Balance.should.be.bignumber.equal(ether(1000) - bid - AssertionFee);
+      let numAssertions = await this.bountyregistry.getNumberOfAssertions(guid);
+      numAssertions.should.be.bignumber.equal(1);
+      let assertion = await this.bountyregistry.assertionsByGuid(guid, index);
+      assertion[1].should.be.bignumber.equal(bid);
+    });
+  });
+
+});
