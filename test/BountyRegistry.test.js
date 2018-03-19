@@ -1,5 +1,5 @@
 import ether from './helpers/ether';
-import { advanceBlock } from './helpers/advanceToBlock';
+import advanceToBlock, { advanceBlock } from './helpers/advanceToBlock';
 import EVMRevert from './helpers/EVMRevert';
 import utils from 'ethereumjs-util';
 
@@ -25,15 +25,19 @@ function randomGuid() {
 
 async function postBounty(token, bountyregistry, from, amount, url, duration) {
   let guid = randomGuid();
-  await token.approve(bountyregistry.address, amount + BountyFee, { from });
+  await token.approve(bountyregistry.address, amount.add(BountyFee), { from });
   let tx = await bountyregistry.postBounty(guid, amount, url, duration, { from });
   return tx.logs[0].args.guid;
 }
 
 async function postAssertion(token, bountyregistry, from, bountyGuid, bid, mask, verdicts, metadata) {
-  await token.approve(bountyregistry.address, bid + AssertionFee, { from });
+  await token.approve(bountyregistry.address, bid.add(AssertionFee), { from });
   let tx = await bountyregistry.postAssertion(bountyGuid, bid, mask, verdicts, metadata, { from });
   return tx.logs[0].args.index;
+}
+
+async function settleBounty(bountyregistry, from, bountyGuid, verdicts) {
+  await bountyregistry.settleBounty(bountyGuid, verdicts, { from });
 }
 
 contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
@@ -79,7 +83,7 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
       let guid = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
 
       let userBalance = await this.token.balanceOf(user);
-      userBalance.should.be.bignumber.equal(ether(1000) - amount - BountyFee);
+      userBalance.should.be.bignumber.equal(ether(1000).sub(amount).sub(BountyFee));
       let numBounties = await this.bountyregistry.getNumberOfBounties();
       numBounties.should.be.bignumber.equal(1);
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
@@ -95,12 +99,37 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
       let index = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo");
 
       let expert0Balance = await this.token.balanceOf(expert0);
-      expert0Balance.should.be.bignumber.equal(ether(1000) - bid - AssertionFee);
+      expert0Balance.should.be.bignumber.equal(ether(1000).sub(bid).sub(AssertionFee));
       let numAssertions = await this.bountyregistry.getNumberOfAssertions(guid);
       numAssertions.should.be.bignumber.equal(1);
       let assertion = await this.bountyregistry.assertionsByGuid(guid, index);
       assertion[1].should.be.bignumber.equal(bid);
     });
   });
+
+  describe('arbiter', function() {
+    it('should allow arbiters to settle bounties', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+      let guid = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
+      await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
+      await advanceToBlock(web3.eth.blockNumber + 10);
+      await settleBounty(this.bountyregistry, arbiter, guid, 0x1);
+
+      let expert0Balance = await this.token.balanceOf(expert0);
+      // init - bid - assertionFee
+      expert0Balance.should.be.bignumber.equal(ether(1000).sub(bid).sub(AssertionFee));
+
+      let expert1Balance = await this.token.balanceOf(expert1);
+      // init + (bid / 2) + (amount / 2) - assertionFee
+      expert1Balance.should.be.bignumber.equal(ether(1000).add(bid.div(2)).add(amount.div(2)).sub(AssertionFee));
+
+      let arbiterBalance = await this.token.balanceOf(arbiter);
+      // init + (bid / 2) + (amount / 2) + (assertionFee * 2) + bountyFee
+      arbiterBalance.should.be.bignumber.equal(ether(1000).add(bid.div(2)).add(amount.div(2)).add(AssertionFee.mul(2)).add(BountyFee));
+    });
+  });
+
 
 });
