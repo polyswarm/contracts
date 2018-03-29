@@ -182,6 +182,10 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
       let arbiterBalance = await this.token.balanceOf(arbiter);
       // init + (bid / 2) + (amount / 2) + (assertionFee * 2) + bountyFee
       arbiterBalance.should.be.bignumber.equal(ether(1000).add(bid.div(2)).add(amount.div(2)).add(AssertionFee.mul(2)).add(BountyFee));
+
+      let bounty = await this.bountyregistry.bountiesByGuid(guid);
+      bounty[5].should.equal(true);
+      bounty[6].should.be.bignumber.equal(0x1);
     });
 
     it('should only allow arbiters to settle bounties', async function() {

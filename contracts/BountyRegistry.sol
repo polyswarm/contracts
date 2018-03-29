@@ -183,8 +183,8 @@ contract BountyRegistry is Pausable {
         // Check if the deadline has expired
         require(bounty.expirationBlock <= block.number);
 
-        bounty.verdicts = verdicts;
-        bounty.resolved = true;
+        bountiesByGuid[bountyGuid].verdicts = verdicts;
+        bountiesByGuid[bountyGuid].resolved = true;
 
         uint256 i = 0;
 
