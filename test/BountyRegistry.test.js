@@ -38,7 +38,7 @@ async function settleBounty(bountyregistry, from, bountyGuid, verdicts) {
   return await bountyregistry.settleBounty(bountyGuid, verdicts, { from });
 }
 
-contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
+contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, expert1, arbiter]) {
   before(async function () {
     // Advance to the next block to correctly read time in the solidity "now" function interpreted by testrpc
     await advanceBlock();
@@ -47,7 +47,7 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
   beforeEach(async function () {
     this.token = await NectarToken.new();
 
-    await [owner, user, expert0, expert1, arbiter].forEach(async account => {
+    await [owner, user0, user1, user2, expert0, expert1, arbiter].forEach(async account => {
       await this.token.mint(account, ether(1000));
     });
 
@@ -55,22 +55,22 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
 
     this.bountyregistry = await BountyRegistry.new(this.token.address);
 
-    await this.bountyregistry.addArbiter(arbiter);
+    await this.bountyregistry.addArbiter(arbiter, web3.eth.blockNumber);
   });
 
   describe('token', function() {
     it('should allocate 1000NCT to each participant', async function() {
-      await [owner, user, expert0, expert1, arbiter].forEach(async account => {
+      await [owner, user0, user1, user2, expert0, expert1, arbiter].forEach(async account => {
         let balance = await this.token.balanceOf(account);
         balance.should.be.bignumber.equal(ether(1000));
       });
     });
 
     it('should allow transfering NCT between accounts', async function() {
-      await this.token.transfer(user, ether(10));
+      await this.token.transfer(user0, ether(10));
       let ownerBalance = await this.token.balanceOf(owner);
       ownerBalance.should.be.bignumber.equal(ether(990));
-      let userBalance = await this.token.balanceOf(user);
+      let userBalance = await this.token.balanceOf(user0);
       userBalance.should.be.bignumber.equal(ether(1010));
     });
   });
@@ -78,10 +78,10 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
   describe('bounty', function() {
     it('should allow users to post bounties', async function() {
       let amount = ether(10);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
 
-      let userBalance = await this.token.balanceOf(user);
+      let userBalance = await this.token.balanceOf(user0);
       userBalance.should.be.bignumber.equal(ether(1000).sub(amount).sub(BountyFee));
       let numBounties = await this.bountyregistry.getNumberOfBounties();
       numBounties.should.be.bignumber.equal(1);
@@ -91,31 +91,31 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
 
     it('should reject bounties with duplicate guids', async function() {
       let amount = ether(10);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
 
-      await this.token.approve(this.bountyregistry.address, amount.add(BountyFee), { from: user });
-      await this.bountyregistry.postBounty(guid, amount, IpfsReadme, 10, { from: user }).should.be.rejectedWith(EVMRevert);
+      await this.token.approve(this.bountyregistry.address, amount.add(BountyFee), { from: user0 });
+      await this.bountyregistry.postBounty(guid, amount, IpfsReadme, 10, { from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should reject bounties with amounts below the minimum', async function() {
       let amount = ether(0.05);
-      await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10).should.be.rejectedWith(EVMRevert);
+      await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10).should.be.rejectedWith(EVMRevert);
     });
 
     it('should reject bounties with blank URIs', async function() {
       let amount = ether(10);
-      await postBounty(this.token, this.bountyregistry, user, amount, "", 10).should.be.rejectedWith(EVMRevert);
+      await postBounty(this.token, this.bountyregistry, user0, amount, "", 10).should.be.rejectedWith(EVMRevert);
     });
 
     it('should reject bounties with zero duration', async function() {
       let amount = ether(10);
-      await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 0).should.be.rejectedWith(EVMRevert);
+      await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 0).should.be.rejectedWith(EVMRevert);
     });
 
     it('should reject bounties the user can\'t cover', async function() {
       let amount = ether(1001);
-      await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10).should.be.rejectedWith(EVMRevert);
+      await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10).should.be.rejectedWith(EVMRevert);
     });
   });
 
@@ -123,7 +123,7 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
     it('should allow users to post assertions', async function() {
       let amount = ether(10);
       let bid = ether(20);
-      let tx0 = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx0 = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx0.logs[0].args.guid;
       let tx1 = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo");
       let index = tx1.logs[0].args.index;
@@ -145,7 +145,7 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
     it('should reject assertions with a bid below the minimum', async function() {
       let amount = ether(10);
       let bid = ether(0.05);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo").should.be.rejectedWith(EVMRevert);
     });
@@ -153,7 +153,7 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
     it('should reject assertions against an expired bounty', async function() {
       let amount = ether(10);
       let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
       await advanceToBlock(web3.eth.blockNumber + 10);
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo").should.be.rejectedWith(EVMRevert);
@@ -164,7 +164,7 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
     it('should allow arbiters to settle bounties', async function() {
       let amount = ether(10);
       let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
       await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
@@ -191,25 +191,25 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
     it('should only allow arbiters to settle bounties', async function() {
       let amount = ether(10);
       let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
       await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
       await advanceToBlock(web3.eth.blockNumber + 10);
-      await settleBounty(this.bountyregistry, user, guid, 0x1).should.be.rejectedWith(EVMRevert);
+      await settleBounty(this.bountyregistry, user0, guid, 0x1).should.be.rejectedWith(EVMRevert);
     });
 
     it('should only allow owner to modify arbiters', async function() {
-      await this.bountyregistry.removeArbiter(arbiter, { from: user }).should.be.rejectedWith(EVMRevert);
-      await this.bountyregistry.addArbiter(user, { from: user }).should.be.rejectedWith(EVMRevert);
+      await this.bountyregistry.removeArbiter(arbiter, web3.eth.blockNumber, { from: user0 }).should.be.rejectedWith(EVMRevert);
+      await this.bountyregistry.addArbiter(user0, web3.eth.blockNumber, { from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should allow removing arbiters', async function() {
-      await this.bountyregistry.removeArbiter(arbiter);
+      await this.bountyregistry.removeArbiter(arbiter, web3.eth.blockNumber);
 
       let amount = ether(10);
       let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
       await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
@@ -218,17 +218,35 @@ contract('BountyRegistry', function ([owner, user, expert0, expert1, arbiter]) {
     });
 
     it('should allow removing and readding arbiters', async function() {
-      await this.bountyregistry.removeArbiter(arbiter);
-      await this.bountyregistry.addArbiter(arbiter);
+      await this.bountyregistry.removeArbiter(arbiter, web3.eth.blockNumber);
+      await this.bountyregistry.addArbiter(arbiter, web3.eth.blockNumber);
 
       let amount = ether(10);
       let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user, amount, IpfsReadme, 10);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
       await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
       await advanceToBlock(web3.eth.blockNumber + 10);
       await settleBounty(this.bountyregistry, arbiter, guid, 0x1).should.be.fulfilled;
+    });
+
+    it('should calculate arbiter candidates', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+
+      // Post a bunch of bounties
+      await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
+      await postBounty(this.token, this.bountyregistry, user1, amount, IpfsReadme, 10);
+      await postBounty(this.token, this.bountyregistry, user2, amount, IpfsReadme, 10);
+      await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
+      await postBounty(this.token, this.bountyregistry, user1, amount, IpfsReadme, 10);
+      await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
+
+      let arbiterCandidates = await this.bountyregistry.getArbiterCandidates();
+      arbiterCandidates[0].should.equal(user0);
+      arbiterCandidates[1].should.equal(user1);
+      arbiterCandidates[2].should.equal(user2);
     });
   });
 });
