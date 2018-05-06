@@ -4,10 +4,10 @@ const BountyRegistry = artifacts.require('BountyRegistry');
 module.exports = function(deployer, network, accounts) {
   if (network === 'mainnet') {
     const NECTAR_ADDRESS = '0x9e46a38f5daabe8683e10793b06749eef7d733d1';
-    deployer.deploy(BountyRegistry, NECTAR_ADDRESS);
+    return deployer.deploy(BountyRegistry, NECTAR_ADDRESS);
   } else {
-    deployer.deploy(NectarToken).then(() => {
-      deployer.deploy(BountyRegistry, NectarToken.address);
+    return deployer.deploy(NectarToken).then(() => {
+      return deployer.deploy(BountyRegistry, NectarToken.address);
     });
   }
 };
