@@ -10,6 +10,7 @@ import "zeppelin-solidity/contracts/math/SafeMath.sol";
 library OfferLib {
 
     using SafeMath for uint256;
+    
     // TODO: Think about removing useless state varibles and or replacing with merkle root
 
     // Current State Map

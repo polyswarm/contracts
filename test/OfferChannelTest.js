@@ -119,7 +119,6 @@ contract('OfferRegistry & OfferMultiSig', function(accounts) {
     let v = parseInt(s0sigB.substr(130, 2)) + 27
 
     let receipt = await msig.joinAgreement(s0marshall, v, r, s, { from: expert, gas: 1000000 })
-    
   })
 
   it("generate offer", async () => {
