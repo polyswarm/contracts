@@ -40,6 +40,8 @@
   },
   "dependencies": {
     "ethjs-abi": "^0.2.1",
+    "sha256": "^0.2.0",
+    "web3-utils": "^1.0.0-beta.34",
     "zeppelin-solidity": "^1.7.0"
   }
 }
