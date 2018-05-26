@@ -10,8 +10,9 @@ import "zeppelin-solidity/contracts/math/SafeMath.sol";
 library OfferLib {
 
     using SafeMath for uint256;
+    // TODO: Think about removing useless state varibles and or replacing with merkle root
 
-    // State
+    // Current State Map
     // [0-31] is close flag
     // [32-63] nonce
     // [64-95] ambassador address
@@ -20,14 +21,14 @@ library OfferLib {
     // [160-191] balance in nectar for ambassador
     // [192-223] balance in nectar for expert
     // [224-255] token address
-    // [256-287] A globally-unique identi er for the Listing.
+    // [256-287] A globally-unique identifier for the Listing.
     // [288-319] The Offer Amount.
     // [320-351] Cryptographic hash of the Artifact.
     // [352-383] The URI of the Artifact.
     // [384-415] Engagement Deadline
     // [416-447] Assertion Deadline
     // [448-479] commitment
-    // [480-511] “malicious” or “benign”
+    // [480-511] “malicious” or “benign” - TODO: Change to represent array of verdicts
     // [512-543] Information derived during Assertion generation
 
     function getCloseFlag(bytes _state) public pure returns(uint8 _flag) {

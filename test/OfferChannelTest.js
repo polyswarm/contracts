@@ -3,7 +3,7 @@ const OfferRegistry = artifacts.require("./OfferRegistry.sol")
 const OfferMultiSig = artifacts.require("./OfferMultiSig.sol")
 const NectarToken = artifacts.require("./NectarToken.sol")
 const OfferLib = artifacts.require("./OfferLib.sol")
-const Utils = require('./helpers/utils')
+const Utils = require('./helpers/stateutils')
 const fs = require('fs')
 console.log(__dirname);
 const offerABI = JSON.parse(fs.readFileSync(__dirname + '/../build/contracts/OfferMultiSig.json', 'utf8')).abi;

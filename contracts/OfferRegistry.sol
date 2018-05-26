@@ -1,9 +1,10 @@
 pragma solidity ^0.4.23;
-
 import "./OfferMultiSig.sol";
 
+/// @title Creates new Offer Channel contracts and keeps track of them 
 contract OfferRegistry {
 
+    /// @dev maps a participant to a list of channels they belong to
     mapping (address => address[]) public participantToChannels;
 
     event InitializedChannel(address msig, address ambassador, address expert);
@@ -18,7 +19,7 @@ contract OfferRegistry {
      * @param _settlementPeriodLength how long the parties have to dispute the settlement offer channel
      */
 
-    function initializeOfferChannel(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public returns(address) {
+    function initializeOfferChannel(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) external {
         require(msg.sender == _ambassador);
         require(address(0) != _expert);
         require(address(0) != _ambassador);
@@ -30,8 +31,6 @@ contract OfferRegistry {
         participantToChannels[_expert].push(msig);
 
         emit InitializedChannel(msig, _ambassador, _expert);
-
-        return msig;
     }
 
 

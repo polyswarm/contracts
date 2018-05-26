@@ -4,7 +4,7 @@ const Web3Utils = require('web3-utils');
 const sha256 = require('sha256');
 const NectarToken = artifacts.require("./NectarToken.sol")
 const OfferLib = artifacts.require("./OfferLib.sol")
-const Utils = require('./helpers/utils')
+const Utils = require('./helpers/stateutils')
 let offerArray
 let offerStateBytes
 let ambassador
