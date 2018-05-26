@@ -1,21 +1,30 @@
 pragma solidity ^0.4.23;
 
+import "./MultiSig.sol";
+
 contract OfferRegistry {
 
     mapping (address => address[]) public participantToChannels;
-    event Added(address msig, address participant);
 
-    function add(bytes state, address participant) public {
-        address msig = getMultiSigAddress(state);
+    event InitializedChannel(address msig, address ambassador, address expert);
 
-        require(msg.sender == msig);
+    function initializeOfferChannel(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public returns(address) {
+        require(msg.sender == _ambassador);
+        require(address(0) != _expert);
+        require(address(0) != _ambassador);
+        require(address(0) != _offerLib);
 
-        participantToChannels[participant].push(msig);
+        address msig = new MultiSig(_offerLib, _ambassador, _expert, _settlementPeriodLength);
 
-        emit Added(msig, participant);
+        participantToChannels[_ambassador].push(msig);
+        participantToChannels[_expert].push(msig);
+
+        emit InitializedChannel(msig, _ambassador, _expert);
+
+        return msig;
     }
 
-    function getParticipantChannels(address participant) external returns (address[]) {
+    function getParticipantChannels(address participant) external constant returns (address[]) {
         require(participantToChannels[participant].length != 0);
         
         address[] memory participantChannels = new address[](participantToChannels[participant].length);
@@ -25,12 +34,6 @@ contract OfferRegistry {
         }
 
         return participantChannels;
-    }
-
-    function getMultiSigAddress(bytes _state) internal pure returns (address _multisig) {
-        assembly {
-            _multisig := mload(add(_state, 160))
-        }
     }
 
     function() payable public {
