@@ -1,7 +1,12 @@
 pragma solidity ^0.4.23;
 import "./OfferMultiSig.sol";
 
+<<<<<<< HEAD
 /// @title Creates new Offer Channel contracts and keeps track of them 
+=======
+import "./OfferMultiSig.sol";
+
+>>>>>>> remove old contract
 contract OfferRegistry {
 
     /// @dev maps a participant to a list of channels they belong to

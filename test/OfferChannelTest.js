@@ -157,11 +157,56 @@ contract('OfferRegistry & OfferMultiSig', function(accounts) {
     s1marshall = Utils.marshallState(offerState)
   })
 
-  // it("expert signs state and joins msig agreement", async () => {
-  //   s0sigB = await web3.eth.sign(expert, web3.sha3(s0marshall, {encoding: 'hex'}))
-  //   let r = s0sigB.substr(0,66)
-  //   let s = "0x" + s0sigB.substr(66,64)
-  //   let v = parseInt(s0sigB.substr(130, 2)) + 27
+  it("expert signs state and joins msig agreement", async () => {
+    s0sigB = await web3.eth.sign(expert, web3.sha3(s0marshall, {encoding: 'hex'}))
+    let r = s0sigB.substr(0,66)
+    let s = "0x" + s0sigB.substr(66,64)
+    let v = parseInt(s0sigB.substr(130, 2)) + 27
+
+    let receipt = await msig.joinAgreement(s0marshall, v, r, s, { from: expert, gas: 1000000 })
+    
+  })
+
+  it("generate offer", async () => {
+    offerChannelID = Math.floor(Math.random() * 10000)
+    guid = Math.floor(Math.random() * 10000)
+    subchannelInputs = [];
+    artifactHash = web3.sha3(Math.random());
+    engagementDeadline = 10;
+    assertionDeadline = 50;
+    commitment = false;
+    assertion = 'none';
+    IPFSUri = web3.sha3(Math.random());
+    metadata = 'Locky';
+
+    // channel offerState
+    const offerState = []
+    offerState.push(0) // is close
+    offerState.push(1) // sequence
+    offerState.push(ambassador) // ambassador address
+    offerState.push(expert) // expert address
+    offerState.push(msig.address) //  msig address
+    offerState.push(20) // balance in nectar ambassador
+    offerState.push(0) // balance in nectar expert
+    offerState.push(nectaraddress) // token address
+    offerState.push(guid) // A globally-unique identi er for the Listing.
+    offerState.push(1) // The Offer Amount.
+    offerState.push(artifactHash) // Cryptographic hash of the Artifact.
+    offerState.push(IPFSUri) // The URI of the Artifact.
+    offerState.push(engagementDeadline) // Engagement Deadline
+    offerState.push(assertionDeadline) // Assertion Deadline
+    offerState.push(commitment) // has the expert made commitment
+    offerState.push(assertion) // “malicious” or “benign”
+    offerState.push(metadata) // Information derived during Assertion generation
+
+    s1 = offerState
+    s1marshall = Utils.marshallState(offerState)
+  })
+
+  it("both parties sign state: s1", async () => {
+    s1sigA = await web3.eth.sign(ambassador, web3.sha3(s1marshall, {encoding: 'hex'}))
+    s1sigB = await web3.eth.sign(expert, web3.sha3(s1marshall, {encoding: 'hex'}))
+  })
 
   it("can update MultiSig balance", async () => {
 
