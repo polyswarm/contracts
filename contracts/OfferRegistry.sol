@@ -1,18 +1,14 @@
 pragma solidity ^0.4.23;
 import "./OfferMultiSig.sol";
 
-<<<<<<< HEAD
 /// @title Creates new Offer Channel contracts and keeps track of them 
-=======
-import "./OfferMultiSig.sol";
-
->>>>>>> remove old contract
 contract OfferRegistry {
 
     /// @dev maps a participant to a list of channels they belong to
     mapping (address => address[]) public participantToChannels;
 
     event InitializedChannel(address msig, address ambassador, address expert);
+
     /**
      * Function called by ambassador to initialize an offer contract
      * It deploys a new offer multi sig and saves it for each participant

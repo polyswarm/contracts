@@ -5,8 +5,7 @@ contract OfferMultiSig {
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
 
-    address public offerLib;
-
+    address public offerLib;  // Address of offer library
     address public ambassador; // Address of first channel participant
     address public expert; // Address of second channel participant
 
@@ -17,7 +16,6 @@ contract OfferMultiSig {
     uint public isClosed; // if the period has closed
     bytes public state; // the current state
     uint public sequence; // state nonce used in during settlement
-
     uint public isInSettlementState; // meta channel is in settling 1: Not settling 0
     uint public settlementPeriodEnd; // The time when challenges are no longer accepted after
 
@@ -30,7 +28,7 @@ contract OfferMultiSig {
     }
 
     /**
-     * Function called by ambassador to open channel to _expert 
+     * Function called by ambassador to open channel with _expert 
      * 
      * @param _state inital offer state
      * @param _v the recovery id from signature of state
@@ -86,21 +84,21 @@ contract OfferMultiSig {
      * Function called by ambassador to update balance and add to escrow
      * by default to escrows the allowed balance
      * @param _state offer state from ambassador
-     * @param sigV the recovery id from signature of state by both parties
-     * @param sigR output of ECDSA signature  of state by both parties
-     * @param sigS output of ECDSA signature of state by both parties
+     * @param _sigV the recovery id from signature of state by both parties
+     * @param _sigR output of ECDSA signature  of state by both parties
+     * @param _sigS output of ECDSA signature of state by both parties
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
 
-    function depositState(bytes _state, uint8[2] sigV, bytes32[2] sigR, bytes32[2] sigS) public payable {
+    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public payable {
 
         require(isOpen == true, 'Tried adding state to a close msig wallet');
-        address _ambassador = _getSig(_state, sigV[0], sigR[0], sigS[0]);
-        address _expert = _getSig(_state, sigV[1], sigR[1], sigS[1]);
+        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
 
         // Require both signatures
-        require(_hasAllSigs(_ambassador, _expert));
+        require(_hasAll_Sigs(_ambassador, _expert));
 
         uint _length = _state.length;
 
@@ -113,22 +111,22 @@ contract OfferMultiSig {
      * Function called by ambassador or expert to close a their channel after a dispute has timedout
      *
      * @param _state final offer state agreed on by both parties through dispute settlement
-     * @param sigV the recovery id from signature of state by both parties
-     * @param sigR output of ECDSA signature  of state by both parties
-     * @param sigS output of ECDSA signature of state by both parties
+     * @param _sigV the recovery id from signature of state by both parties
+     * @param _sigR output of ECDSA signature  of state by both parties
+     * @param _sigS output of ECDSA signature of state by both parties
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
 
-    function closeAgreementWithTimeout(bytes _state, uint8[2] sigV, bytes32[2] sigR, bytes32[2] sigS) public {
-        address _ambassador = _getSig(_state, sigV[0], sigR[0], sigS[0]);
-        address _expert = _getSig(_state, sigV[1], sigR[1], sigS[1]);
+    function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
 
         require(settlementPeriodEnd <= now);
         require(isClosed == 0);
         require(isInSettlementState == 1);
 
-        require(_hasAllSigs(_ambassador, _expert));
+        require(_hasAll_Sigs(_ambassador, _expert));
         require(keccak256(state) == keccak256(_state));
 
         isClosed = 1;
@@ -142,16 +140,16 @@ contract OfferMultiSig {
      * Function called by ambassador or expert to close a their channel with close flag
      *
      * @param _state final offer state agreed on by both parties with close flag
-     * @param sigV the recovery id from signature of state by both parties
-     * @param sigR output of ECDSA signature  of state by both parties
-     * @param sigS output of ECDSA signature of state by both parties
+     * @param _sigV the recovery id from signature of state by both parties
+     * @param _sigR output of ECDSA signature  of state by both parties
+     * @param _sigS output of ECDSA signature of state by both parties
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
 
-    function closeAgreement(bytes _state, uint8[2] sigV, bytes32[2] sigR, bytes32[2] sigS) public {
-        address _ambassador = _getSig(_state, sigV[0], sigR[0], sigS[0]);
-        address _expert = _getSig(_state, sigV[1], sigR[1], sigS[1]);
+    function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
 
         require(isClosed == 0);
         
@@ -160,7 +158,7 @@ contract OfferMultiSig {
 
         /// @dev must have close flag
         require(_isClose(_state), 'State did not have a signed close out state');
-        require(_hasAllSigs(_ambassador, _expert));
+        require(_hasAll_Sigs(_ambassador, _expert));
 
         isClosed = 1;
         state = _state;
@@ -169,11 +167,22 @@ contract OfferMultiSig {
         isOpen = false;
     }
 
-    function startSettle(bytes _state, uint8[2] _v, bytes32[2] _r, bytes32[2] _s) public {
-        address _ambassador = _getSig(_state, _v[0], _r[0], _s[0]);
-        address _expert = _getSig(_state, _v[1], _r[1], _s[1]);
 
-        require(_hasAllSigs(_ambassador, _expert));
+    /**
+     * Function called by ambassador or expert to start initalize a disputed settlement
+     * using an agreed upon state. It starts a timeout for a reply using `settlementPeriodLength`
+     * 
+     * @param _state offer state agreed on by both parties
+     * @param _sigV the recovery id from signature of state by both parties
+     * @param _sigR output of ECDSA signature  of state by both parties
+     * @param _sigS output of ECDSA signature of state by both parties
+     */
+
+    function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+
+        require(_hasAll_Sigs(_ambassador, _expert));
 
         require(isClosed == 0);
         require(isInSettlementState == 0);
@@ -186,11 +195,21 @@ contract OfferMultiSig {
         settlementPeriodEnd = now + settlementPeriodLength;
     }
 
-    function challengeSettle(bytes _state, uint8[2] _v, bytes32[2] _r, bytes32[2] _s) public {
-        address _ambassador = _getSig(_state, _v[0], _r[0], _s[0]);
-        address _expert = _getSig(_state, _v[1], _r[1], _s[1]);
+    /**
+     * Function called by ambassador or expert to challenge a disputed state
+     * The new state is accepted if it is signed by both parties and has a higher sequence number
+     * 
+     * @param _state offer state agreed on by both parties
+     * @param _sigV the recovery id from signature of state by both parties
+     * @param _sigR output of ECDSA signature  of state by both parties
+     * @param _sigS output of ECDSA signature of state by both parties
+     */
 
-        require(_hasAllSigs(_ambassador, _expert));
+    function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+
+        require(_hasAll_Sigs(_ambassador, _expert));
 
         require(isInSettlementState == 1);
         require(now < settlementPeriodEnd);
@@ -210,6 +229,12 @@ contract OfferMultiSig {
     function getSettlementPeriodEnd() public view returns (uint) {
         return settlementPeriodEnd;
     }
+
+    /**
+     * Function called to get the state sequence
+     *
+     * @param _state offer state
+     */
 
     function _getSequence(bytes _state) public pure returns (uint _seq) {
         assembly {
@@ -238,7 +263,7 @@ contract OfferMultiSig {
      * @param _b expert address
      */
 
-    function _hasAllSigs(address _a, address _b) internal view returns (bool) {
+    function _hasAll_Sigs(address _a, address _b) internal view returns (bool) {
         require(_a == ambassador && _b == expert, 'Signatures do not match parties in state');
 
         return true;
