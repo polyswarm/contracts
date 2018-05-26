@@ -157,10 +157,11 @@ contract('OfferRegistry & OfferMultiSig', function(accounts) {
     s1marshall = Utils.marshallState(offerState)
   })
 
-  it("both parties sign state: s1", async () => {
-    s1sigA = await web3.eth.sign(ambassador, web3.sha3(s1marshall, {encoding: 'hex'}))
-    s1sigB = await web3.eth.sign(expert, web3.sha3(s1marshall, {encoding: 'hex'}))
-  })
+  // it("expert signs state and joins msig agreement", async () => {
+  //   s0sigB = await web3.eth.sign(expert, web3.sha3(s0marshall, {encoding: 'hex'}))
+  //   let r = s0sigB.substr(0,66)
+  //   let s = "0x" + s0sigB.substr(66,64)
+  //   let v = parseInt(s0sigB.substr(130, 2)) + 27
 
   it("can update MultiSig balance", async () => {
 

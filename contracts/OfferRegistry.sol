@@ -8,7 +8,6 @@ contract OfferRegistry {
     mapping (address => address[]) public participantToChannels;
 
     event InitializedChannel(address msig, address ambassador, address expert);
-
     /**
      * Function called by ambassador to initialize an offer contract
      * It deploys a new offer multi sig and saves it for each participant

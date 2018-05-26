@@ -1,28 +1,24 @@
 pragma solidity ^0.4.23;
 
 import "./OfferChannel.sol";
-import "./OfferRegistry.sol";
 
 contract MultiSig is OfferChannel {
 
     string public constant NAME = "Offer Channel MultiSig";
     string public constant VERSION = "0.0.1";
 
-    address public offerRegistry;
     address public offerLib;
 
     bool public isOpen = false; // true when both parties have joined
     bool public isPending = false; // true when waiting for counterparty to join agreement
 
-    constructor(address _offerLib, address _registry, address _ambassador, address _expert, uint _settlementPeriodLength) public {
+    constructor(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public {
         require(_offerLib != 0x0, 'No offer lib provided to Msig constructor');
         offerLib = _offerLib;
         ambassador = _ambassador;
         expert = _expert;
-        offerRegistry = _registry;
         settlementPeriodLength = _settlementPeriodLength;
     }
-
 
     /**
      * Function called by ambassador to open channel to _expert 
@@ -48,8 +44,6 @@ contract MultiSig is OfferChannel {
         // the open inerface can generalize an entry point for differenct kinds of checks
         // on opening state
         require(address(offerLib).delegatecall(bytes4(keccak256("open(bytes)")), bytes32(32), bytes32(_length), _state));
-
-        OfferRegistry(offerRegistry).add(_state, ambassador);
     }
 
     /**
@@ -77,10 +71,6 @@ contract MultiSig is OfferChannel {
         uint _length = _state.length;
 
         require(address(offerLib).delegatecall(bytes4(keccak256("join(bytes)")), bytes32(32), bytes32(_length), _state));
-        // Set storage for state
-        expert = _joiningParty;
-
-        OfferRegistry(offerRegistry).add(_state, expert);
     }
 
     /**
@@ -168,6 +158,39 @@ contract MultiSig is OfferChannel {
 
         _finalize(_state);
         isOpen = false;
+    }
+
+    function startSettle(bytes _state, uint8[2] _v, bytes32[2] _r, bytes32[2] _s) public {
+        address _ambassador = _getSig(_state, _v[0], _r[0], _s[0]);
+        address _expert = _getSig(_state, _v[1], _r[1], _s[1]);
+
+        require(_hasAllSigs(_ambassador, _expert));
+
+        require(isClosed == 0);
+        require(isInSettlementState == 0);
+
+        state = _state;
+
+        sequence = _getSequence(_state);
+
+        isInSettlementState = 1;
+        settlementPeriodEnd = now + settlementPeriodLength;
+    }
+
+    function challengeSettle(bytes _state, uint8[2] _v, bytes32[2] _r, bytes32[2] _s) public {
+        address _ambassador = _getSig(_state, _v[0], _r[0], _s[0]);
+        address _expert = _getSig(_state, _v[1], _r[1], _s[1]);
+
+        require(_hasAllSigs(_ambassador, _expert));
+
+        require(isInSettlementState == 1);
+        require(now < settlementPeriodEnd);
+
+        require(_getSequence(_state) > sequence);
+
+        settlementPeriodEnd = now + settlementPeriodLength;
+        state = _state;
+        sequence = _getSequence(_state);
     }
 
     /**
