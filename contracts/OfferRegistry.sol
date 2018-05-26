@@ -8,6 +8,16 @@ contract OfferRegistry {
 
     event InitializedChannel(address msig, address ambassador, address expert);
 
+    /**
+     * Function called by ambassador to initialize an offer contract
+     * It deploys a new offer multi sig and saves it for each participant
+     * 
+     * @param _offerLib address for OfferLib library
+     * @param _ambassador address of ambassador
+     * @param _expert address of expert
+     * @param _settlementPeriodLength how long the parties have to dispute the settlement offer channel
+     */
+
     function initializeOfferChannel(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public returns(address) {
         require(msg.sender == _ambassador);
         require(address(0) != _expert);
@@ -23,6 +33,13 @@ contract OfferRegistry {
 
         return msig;
     }
+
+
+    /**
+     * Function to get all the channels an address is apart of
+     * 
+     * @param participant an address
+     */
 
     function getParticipantChannels(address participant) external constant returns (address[]) {
         require(participantToChannels[participant].length != 0);
