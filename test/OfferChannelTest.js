@@ -2,7 +2,6 @@
 const OfferRegistry = artifacts.require("./OfferRegistry.sol")
 const MultiSig = artifacts.require("./MultiSig.sol")
 const NectarToken = artifacts.require("./NectarToken.sol")
-const OfferChannel = artifacts.require("./OfferChannel.sol")
 const OfferLib = artifacts.require("./OfferLib.sol")
 const Utils = require('./helpers/utils')
 

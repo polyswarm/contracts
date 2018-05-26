@@ -23,6 +23,16 @@ contract MultiSig is OfferChannel {
         settlementPeriodLength = _settlementPeriodLength;
     }
 
+
+    /**
+     * Function called by ambassador to open channel to _expert 
+     * 
+     * @param _state inital offer state
+     * @param _v the recovery id from signature of state
+     * @param _r output of ECDSA signature of state
+     * @param _s output of ECDSA signature of state
+     */
+
     function openAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public payable {
         // require the channel is not open yet
         require(isOpen == false, 'openAgreement already called, isOpen true');
@@ -41,6 +51,15 @@ contract MultiSig is OfferChannel {
 
         OfferRegistry(offerRegistry).add(_state, ambassador);
     }
+
+    /**
+     * Function called by ambassador to complete opening the channel with an ambassador defined in the _state
+     * 
+     * @param _state offer state from ambassador
+     * @param _v the recovery id from signature of state
+     * @param _r output of ECDSA signature  of state
+     * @param _s output of ECDSA signature of state
+     */
 
     function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public payable {
         require(isOpen == false);
@@ -64,6 +83,17 @@ contract MultiSig is OfferChannel {
         OfferRegistry(offerRegistry).add(_state, expert);
     }
 
+    /**
+     * Function called by ambassador to update balance and add to escrow
+     * by default to escrows the allowed balance
+     * @param _state offer state from ambassador
+     * @param sigV the recovery id from signature of state by both parties
+     * @param sigR output of ECDSA signature  of state by both parties
+     * @param sigS output of ECDSA signature of state by both parties
+     * @dev index 0 is the ambassador signature
+     * @dev index 1 is the expert signature
+     */
+
     function depositState(bytes _state, uint8[2] sigV, bytes32[2] sigR, bytes32[2] sigS) public payable {
 
         require(isOpen == true, 'Tried adding state to a close msig wallet');
@@ -79,6 +109,17 @@ contract MultiSig is OfferChannel {
 
         require(address(offerLib).delegatecall(bytes4(keccak256("update(bytes)")), bytes32(32), bytes32(_length), _state));
     }
+
+    /**
+     * Function called by ambassador or expert to close a their channel after a dispute has timedout
+     *
+     * @param _state final offer state agreed on by both parties through dispute settlement
+     * @param sigV the recovery id from signature of state by both parties
+     * @param sigR output of ECDSA signature  of state by both parties
+     * @param sigS output of ECDSA signature of state by both parties
+     * @dev index 0 is the ambassador signature
+     * @dev index 1 is the expert signature
+     */
 
     function closeAgreementWithTimeout(bytes _state, uint8[2] sigV, bytes32[2] sigR, bytes32[2] sigS) public {
         address _ambassador = _getSig(_state, sigV[0], sigR[0], sigS[0]);
@@ -96,6 +137,18 @@ contract MultiSig is OfferChannel {
         _finalize(_state);
         isOpen = false;
     }
+
+
+    /**
+     * Function called by ambassador or expert to close a their channel with close flag
+     *
+     * @param _state final offer state agreed on by both parties with close flag
+     * @param sigV the recovery id from signature of state by both parties
+     * @param sigR output of ECDSA signature  of state by both parties
+     * @param sigS output of ECDSA signature of state by both parties
+     * @dev index 0 is the ambassador signature
+     * @dev index 1 is the expert signature
+     */
 
     function closeAgreement(bytes _state, uint8[2] sigV, bytes32[2] sigR, bytes32[2] sigS) public {
         address _ambassador = _getSig(_state, sigV[0], sigR[0], sigS[0]);
@@ -117,26 +170,47 @@ contract MultiSig is OfferChannel {
         isOpen = false;
     }
 
+    /**
+     * Return with the settlement period is going to end. This is the amount of time
+     * an ambassor or expert has to reply with a new state
+     */
+
     function getSettlementPeriodEnd() public view returns (uint) {
         return settlementPeriodEnd;
     }
 
-    function getNow() public view returns (uint) {
-        return now;
-    }
+    // Internal Functions
 
-    // Internal
+    /**
+     * Function called by closeAgreementWithTimeout or closeAgreement to disperse payouts
+     *
+     * @param _s final offer state agreed on by both parties with close flag
+     */
+
     function _finalize(bytes _s) internal {
         uint _length = _s.length;
         
         require(address(offerLib).delegatecall(bytes4(keccak256("finalize(bytes)")), bytes32(32), bytes32(_length), _s));
     }
 
+    /**
+     * A utility function to check if both parties have signed
+     *
+     * @param _a ambassador address
+     * @param _b expert address
+     */
+
     function _hasAllSigs(address _a, address _b) internal view returns (bool) {
         require(_a == ambassador && _b == expert, 'Signatures do not match parties in state');
 
         return true;
     }
+
+    /**
+     * A utility function to check for the closed flag in the offer state
+     *
+     * @param _state current offer state
+     */
 
     function _isClose(bytes _state) internal pure returns(bool) {
         uint8 isClosedState;
@@ -150,9 +224,17 @@ contract MultiSig is OfferChannel {
         return true;
     }
 
-    function _getSig(bytes _d, uint8 _v, bytes32 _r, bytes32 _s) internal pure returns(address) {
+    /**
+     * A utility function to return the address of the person that signed the state
+     *
+     * @param _state offer state that was signed
+     * @param _v the recovery id from signature of state by both parties
+     * @param _r output of ECDSA signature  of state by both parties
+     * @param _s output of ECDSA signature of state by both parties
+     */
+    function _getSig(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) internal pure returns(address) {
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 h = keccak256(_d);
+        bytes32 h = keccak256(_state);
 
         bytes32 prefixedHash = keccak256(prefix, h);
 
