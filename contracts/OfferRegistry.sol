@@ -1,6 +1,6 @@
 pragma solidity ^0.4.23;
 
-import "./MultiSig.sol";
+import "./OfferMultiSig.sol";
 
 contract OfferRegistry {
 
@@ -14,7 +14,7 @@ contract OfferRegistry {
         require(address(0) != _ambassador);
         require(address(0) != _offerLib);
 
-        address msig = new MultiSig(_offerLib, _ambassador, _expert, _settlementPeriodLength);
+        address msig = new OfferMultiSig(_offerLib, _ambassador, _expert, _settlementPeriodLength);
 
         participantToChannels[_ambassador].push(msig);
         participantToChannels[_expert].push(msig);

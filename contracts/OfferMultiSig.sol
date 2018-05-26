@@ -1,16 +1,25 @@
 pragma solidity ^0.4.23;
 
-import "./OfferChannel.sol";
+contract OfferMultiSig {
 
-contract MultiSig is OfferChannel {
-
-    string public constant NAME = "Offer Channel MultiSig";
+    string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
 
     address public offerLib;
 
+    address public ambassador; // Address of first channel participant
+    address public expert; // Address of second channel participant
+
     bool public isOpen = false; // true when both parties have joined
     bool public isPending = false; // true when waiting for counterparty to join agreement
+
+    uint public settlementPeriodLength; // How long challengers have to reply to settle engagement
+    uint public isClosed; // if the period has closed
+    bytes public state; // the current state
+    uint public sequence; // state nonce used in during settlement
+
+    uint public isInSettlementState; // meta channel is in settling 1: Not settling 0
+    uint public settlementPeriodEnd; // The time when challenges are no longer accepted after
 
     constructor(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public {
         require(_offerLib != 0x0, 'No offer lib provided to Msig constructor');
@@ -200,6 +209,12 @@ contract MultiSig is OfferChannel {
 
     function getSettlementPeriodEnd() public view returns (uint) {
         return settlementPeriodEnd;
+    }
+
+    function _getSequence(bytes _state) public pure returns (uint _seq) {
+        assembly {
+            _seq := mload(add(_state, 64))
+        }
     }
 
     // Internal Functions
