@@ -16,9 +16,10 @@ contract BountyRegistry is Pausable {
         string artifactURI;
         uint256 expirationBlock;
         bool resolved;
-        uint256[] verdicts;
+        uint256[8] bloom;
         address[] voters;
-        uint256 votingLimitBlock;
+        uint256[] verdicts;
+        bool[] bloomVotes;
     }
 
     struct Assertion {
@@ -143,7 +144,8 @@ contract BountyRegistry is Pausable {
         uint128 guid,
         uint256 amount,
         string artifactURI,
-        uint256 durationBlocks
+        uint256 durationBlocks,
+        uint256[8] bloom
     )
         external
         whenNotPaused
@@ -165,7 +167,7 @@ contract BountyRegistry is Pausable {
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
         bountiesByGuid[guid].expirationBlock = durationBlocks.add(block.number);
-        bountiesByGuid[guid].votingLimitBlock = ARBITER_VOTE_WINDOW.add(bountiesByGuid[guid].expirationBlock);
+        bountiesByGuid[guid].bloom = bloom;
 
         bountyGuids.push(guid);
 
@@ -239,7 +241,8 @@ contract BountyRegistry is Pausable {
 
     function voteOnBounty(
         uint128 bountyGuid,
-        uint256 verdicts
+        uint256 verdicts,
+        bool validBloom
     )
         external
         onlyArbiter
@@ -252,10 +255,11 @@ contract BountyRegistry is Pausable {
         // Check if the deadline has expired
         require(bounty.expirationBlock <= block.number);
         // Check if the voting window has closed
-        require(bounty.votingLimitBlock > block.number);
+        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) > block.number);
 
         bounty.verdicts.push(verdicts);
         bounty.voters.push(msg.sender);
+        bounty.bloomVotes.push(validBloom);
 
         staking.recordBounty(msg.sender, bountyGuid, block.number);
         
@@ -282,7 +286,7 @@ contract BountyRegistry is Pausable {
         // Check if the deadline has expired
         require(bounty.expirationBlock <= block.number);
         // Check if the voting window has closed
-        require(bounty.votingLimitBlock <= block.number);
+        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) <= block.number);
 
         bountiesByGuid[bountyGuid].resolved = true;
 

@@ -27,7 +27,7 @@ function randomGuid() {
 async function postBounty(token, bountyregistry, from, amount, url, duration) {
   let guid = randomGuid();
   await token.approve(bountyregistry.address, amount.add(BountyFee), { from });
-  return await bountyregistry.postBounty(guid, amount, url, duration, { from });
+  return await bountyregistry.postBounty(guid, amount, url, duration, [0, 0, 0, 0, 0, 0, 0, 0], { from });
 }
 
 async function postAssertion(token, bountyregistry, from, bountyGuid, bid, mask, verdicts, metadata) {
@@ -40,7 +40,7 @@ async function settleBounty(bountyregistry, from, bountyGuid) {
 }
 
 async function voteOnBounty(bountyregistry, from, bountyGuid, verdicts) {
-  return await bountyregistry.voteOnBounty(bountyGuid, verdicts, { from });
+  return await bountyregistry.voteOnBounty(bountyGuid, verdicts, true, { from });
 }
 
 contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, expert1, arbiter0, arbiter1, arbiter2, arbiter3]) {
@@ -114,7 +114,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let guid = tx.logs[0].args.guid;
 
       await this.token.approve(this.bountyregistry.address, amount.add(BountyFee), { from: user0 });
-      await this.bountyregistry.postBounty(guid, amount, IpfsReadme, 10, { from: user0 }).should.be.rejectedWith(EVMRevert);
+      await this.bountyregistry.postBounty(guid, amount, IpfsReadme, 10, [0, 0, 0, 0, 0, 0, 0, 0], { from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should reject bounties with amounts below the minimum', async function() {
