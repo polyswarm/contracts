@@ -94,10 +94,19 @@ contract BountyRegistry is Pausable {
         token = NectarToken(_token);
     }
 
+    /**
+     * Function to check if an address is a valid arbiter
+     *
+     * @param addr The address to check
+     * @return true if addr is a valid arbiter else false
+     */
+    function isArbiter(address addr) public view returns (bool) {
+        return arbiters[addr] && staking.isElligible(addr);
+    }
+
     /** Function only callable by arbiter */
     modifier onlyArbiter() {
-        require(arbiters[msg.sender]);
-        require(staking.isElligible(msg.sender));
+        require(isArbiter(msg.sender));
         _;
     }
 
