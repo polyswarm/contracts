@@ -10,6 +10,13 @@ export function advanceBlock () {
   });
 }
 
+// Advances the block number by `number` blocks.
+export async function advanceBlocks (number) {
+  for (var i = 0; i < number; i++) {
+    await advanceBlock();
+  }
+}
+
 // Advances the block number so that the last mined block is `number`.
 export default async function advanceToBlock (number) {
   if (web3.eth.blockNumber > number) {
