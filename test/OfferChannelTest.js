@@ -1,16 +1,15 @@
 'use strict'
+const Web3Utils = require('web3-utils');
 const OfferRegistry = artifacts.require("./OfferRegistry.sol")
 const OfferMultiSig = artifacts.require("./OfferMultiSig.sol")
 const NectarToken = artifacts.require("./NectarToken.sol")
 const OfferLib = artifacts.require("./OfferLib.sol")
 const Utils = require('./helpers/stateutils')
 const fs = require('fs')
-console.log(__dirname);
 const offerABI = JSON.parse(fs.readFileSync(__dirname + '/../build/contracts/OfferMultiSig.json', 'utf8')).abi;
 
 // offer state
-let offerChannelID
-let guid
+let guid = 101;
 let subchannelInputs
 let artifactHash
 let engagementDeadline
@@ -21,6 +20,8 @@ let IPFSUri
 let metadata
 let nectar;
 let nectaraddress;
+let publicEthUri = '127.0.0.1:37713'
+let whisperId = '0c003bdbdc54147f76b2dfec642fc878b8005e3c5ae58af5bb6690040068b269'
 
 // offer channel contrat
 let msig
@@ -50,7 +51,9 @@ let s1marshall
 let s2
 let s2marshall
 
-contract('OfferRegistry & OfferMultiSig', function(accounts) {
+
+
+contract('OfferMultiSig', function(accounts) {
 
   before(async () => {
     ambassador = accounts[1];
@@ -67,11 +70,32 @@ contract('OfferRegistry & OfferMultiSig', function(accounts) {
 
     registry = await OfferRegistry.new();
 
-    let channel = await registry.initializeOfferChannel(offerLib.address, ambassador, expert, settlementPeriodLength, { from: ambassador });
-    let ambassadorChannels = await registry.getParticipantChannels(ambassador);
+    let tx = await registry.initializeOfferChannel(guid, offerLib.address, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
 
-    msig = await web3.eth.contract(offerABI).at(ambassadorChannels[0]);
+    let offerChannel = await registry.getParticipantsChannel(ambassador, expert);
+
+    const whisperparts = [Utils.getBytes(whisperId.slice(0,32)), Utils.getBytes(whisperId.slice(32,64))];
+
+    msig = await web3.eth.contract(offerABI).at(offerChannel);
+
+    await msig.setWhisperInfo(whisperparts, Utils.getBytes(publicEthUri), { from: ambassador });
+
+  })
+
+  it("can get whisper info", async () => {
+    let wid = await msig.getWhisperId();
+
+    wid = wid.map(Web3Utils.hexToString).join('');
+
+    assert.equal(wid, whisperId);
+  })
+
+  it("can get eth uri", async () => {
+    let ethUri = await msig.getEthUri();
+
+    ethUri = Web3Utils.hexToString(ethUri)
     
+    assert.equal(ethUri, publicEthUri);
   })
 
   it("approve MultiSig to accept control nectar for ambassador", async () => {
@@ -168,7 +192,6 @@ contract('OfferRegistry & OfferMultiSig', function(accounts) {
   })
 
   it("generate offer", async () => {
-    offerChannelID = Math.floor(Math.random() * 10000)
     guid = Math.floor(Math.random() * 10000)
     subchannelInputs = [];
     artifactHash = web3.sha3(Math.random());

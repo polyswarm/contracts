@@ -13,7 +13,8 @@ library OfferLib {
     
     // TODO: Think about removing useless state varibles and or replacing with merkle root
 
-    // Current State Map
+    // State Map
+    /// @dev Required State
     // [0-31] is close flag
     // [32-63] nonce
     // [64-95] ambassador address
@@ -24,13 +25,16 @@ library OfferLib {
     // [224-255] token address
     // [256-287] A globally-unique identifier for the Listing.
     // [288-319] The Offer Amount.
+
+    /// @dev Optional State
     // [320-351] Cryptographic hash of the Artifact.
     // [352-383] The URI of the Artifact.
     // [384-415] Engagement Deadline
     // [416-447] Assertion Deadline
-    // [448-479] commitment
+    // [448-479] current commitment
     // [480-511] “malicious” or “benign” - TODO: Change to represent array of verdicts
     // [512-543] Information derived during Assertion generation
+
 
     function getCloseFlag(bytes _state) public pure returns(uint8 _flag) {
         assembly {
@@ -128,15 +132,11 @@ library OfferLib {
     }
 
     function join(bytes _state) public returns (bool) {
-        // ensure the amount sent to join channel matches the signed state balance
-        require(msg.sender == getPartyB(_state), 'Party B does not mactch signature recovery');
         // get the token instance used to allow funds to msig
         NectarToken _t = NectarToken(getTokenAddress(_state));
-
-        // ensure the amount sent to open channel matches the signed state balance
-        require(_t.allowance(getPartyB(_state), this) == getBalanceB(_state), 'value does not match ambassador state balance');
-        // complete the tranfer of ambassador approved tokens
-        _t.transferFrom(getPartyB(_state), this, getBalanceB(_state));
+        
+        // ensure the amount sent to join channel matches the signed state balance
+        require(msg.sender == getPartyB(_state), 'Party B does not mactch signature recovery');
 
         // Require bonded is the sum of balances in state
         require(getTotal(_state) == _t.balanceOf(this), 'token total deposited does not match state balance');
@@ -150,8 +150,6 @@ library OfferLib {
 
         if(_t.allowance(getPartyA(_state), this) > 0) {
             _t.transferFrom(getPartyA(_state), this, _t.allowance(getPartyA(_state), this));
-        } else if (_t.allowance(getPartyB(_state), this) > 0) {
-            _t.transferFrom(getPartyB(_state), this, _t.allowance(getPartyB(_state), this));
         }
 
         require(getTotal(_state) == _t.balanceOf(this), 'token total deposited does not match state balance');

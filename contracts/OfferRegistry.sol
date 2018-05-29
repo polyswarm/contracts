@@ -4,10 +4,21 @@ import "./OfferMultiSig.sol";
 /// @title Creates new Offer Channel contracts and keeps track of them 
 contract OfferRegistry {
 
-    /// @dev maps a participant to a list of channels they belong to
-    mapping (address => address[]) public participantToChannels;
+    struct OfferChannel {
+        address msig;
+        address ambassador;
+        address expert;
+    }
 
-    event InitializedChannel(address msig, address ambassador, address expert);
+    event InitializedChannel(
+        address msig,
+        address ambassador,
+        address expert
+    );
+
+    uint128[] public channelsGuids;
+    mapping (bytes32 => address) public participantsToChannel;
+    mapping (uint128 => OfferChannel) public guidToChannel;
 
     /**
      * Function called by ambassador to initialize an offer contract
@@ -19,37 +30,109 @@ contract OfferRegistry {
      * @param _settlementPeriodLength how long the parties have to dispute the settlement offer channel
      */
 
-    function initializeOfferChannel(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) external {
-        require(msg.sender == _ambassador);
+    function initializeOfferChannel(uint128 guid, address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) external {
+
         require(address(0) != _expert);
         require(address(0) != _ambassador);
         require(address(0) != _offerLib);
+        require(msg.sender == _ambassador);
+
+        bytes32 key = getParticipantsHash(_ambassador, _expert);
+        
+        if (participantsToChannel[key] != address(0)) {
+            /// @dev check to make sure the participants don't already have an open channel
+            require(OfferMultiSig(participantsToChannel[key]).isChannelOpen() == false);
+        }
 
         address msig = new OfferMultiSig(_offerLib, _ambassador, _expert, _settlementPeriodLength);
 
-        participantToChannels[_ambassador].push(msig);
-        participantToChannels[_expert].push(msig);
+        participantsToChannel[key] = msig;
+
+        guidToChannel[guid].msig = msig;
+        guidToChannel[guid].ambassador = _ambassador;
+        guidToChannel[guid].expert = _expert;
+
+        channelsGuids.push(guid);
 
         emit InitializedChannel(msig, _ambassador, _expert);
     }
 
-
     /**
-     * Function to get all the channels an address is apart of
-     * 
-     * @param participant an address
+     * Get the total number of offer channels tracked by the contract
+     *
+     * @return total number of offer channels
      */
 
-    function getParticipantChannels(address participant) external constant returns (address[]) {
-        require(participantToChannels[participant].length != 0);
-        
-        address[] memory participantChannels = new address[](participantToChannels[participant].length);
+    function getNumberOfOffers() external view returns (uint) {
+        return channelsGuids.length;
+    }
 
-        for (uint i = 0; i < participantToChannels[participant].length; i++) {
-            participantChannels[i] = participantToChannels[participant][i];
+    /**
+     * Function to get channel participants are on
+     * 
+     * @param _ambassador the address of ambassador
+     * @param _expert the address of ambassador
+     */
+
+    function getParticipantsChannel(address _ambassador, address _expert) external view returns (address) {
+        bytes32 key = getParticipantsHash(_ambassador, _expert);
+
+        require(participantsToChannel[key] != address(0));
+        
+        return participantsToChannel[key];
+    }
+
+    /**
+     * Gets all the created channelsGuids
+     *
+     * @return list of every channel registered
+     */
+
+    function getChannelsGuids() external constant returns (address[]) {
+        require(channelsGuids.length != 0);
+        
+        address[] memory registeredChannelsGuids = new address[](channelsGuids.length);
+
+        for (uint i = 0; i < channelsGuids.length; i++) {
+            registeredChannelsGuids[i] = channelsGuids[i];
         }
 
-        return participantChannels;
+        return registeredChannelsGuids;
+    }
+
+    // Internals
+
+    /**
+     * Utility function to get hash
+     * 
+     * @param _ambassador address of ambassador
+     * @param _expert address of expert
+     * @return hash of ambassador and expert
+     */
+
+    function getParticipantsHash(address _ambassador, address _expert) internal pure returns (bytes32) {
+        string memory str_ambassador = toString(_ambassador);
+        string memory str_expert = toString(_expert);
+
+        return keccak256(strConcat(str_ambassador, str_expert));
+    }
+
+    function toString(address x) internal pure returns (string) {
+        bytes memory b = new bytes(20);
+        for (uint i = 0; i < 20; i++)
+            b[i] = byte(uint8(uint(x) / (2**(8*(19 - i)))));
+        return string(b);
+    }
+
+    function strConcat(string _a, string _b) internal pure returns (string){
+        bytes memory _ba = bytes(_a);
+        bytes memory _bb = bytes(_b);
+        string memory abcde = new string(_ba.length + _bb.length);
+        bytes memory babcde = bytes(abcde);
+        uint k = 0;
+        for (uint i = 0; i < _ba.length; i++) babcde[k++] = _ba[i];
+        for (i = 0; i < _bb.length; i++) babcde[k++] = _bb[i];
+        return string(babcde);
     }
 
     function() payable public {

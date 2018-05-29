@@ -5,6 +5,31 @@ contract OfferMultiSig {
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
 
+    event WhisperCommunicationsSet(
+        bytes32 publicEthUri,
+        bytes32[2] whisperId
+    );
+
+    event OpenedAgreement(
+        address _ambassador
+    );
+
+    event JoinedAgreement(
+        address _expert
+    );
+
+    event StartedSettle(
+        address initiator,
+        uint sequence,
+        uint settlementPeriodEnd
+    );
+
+    event SettleStateChallenged(
+        address challenger,
+        uint sequence,
+        uint settlementPeriodEnd
+    );
+
     address public offerLib;  // Address of offer library
     address public ambassador; // Address of first channel participant
     address public expert; // Address of second channel participant
@@ -14,17 +39,29 @@ contract OfferMultiSig {
 
     uint public settlementPeriodLength; // How long challengers have to reply to settle engagement
     uint public isClosed; // if the period has closed
-    bytes public state; // the current state
     uint public sequence; // state nonce used in during settlement
     uint public isInSettlementState; // meta channel is in settling 1: Not settling 0
     uint public settlementPeriodEnd; // The time when challenges are no longer accepted after
 
+    bytes32 public publicEthUri; // a geth node running whisper (shh)
+    bytes32[2] public whisperId; // a whisper id created on the above node (all messages will be publicly viewable in beta)
+    bytes public state; // the current state
+
     constructor(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public {
-        require(_offerLib != 0x0, 'No offer lib provided to Msig constructor');
+        require(_offerLib != address(0), 'No offer lib provided to Msig constructor');
+        require(_ambassador != address(0), 'No ambassador lib provided to Msig constructor');
+        require(_expert != address(0), 'No expert lib provided to Msig constructor');
+
         offerLib = _offerLib;
         ambassador = _ambassador;
         expert = _expert;
         settlementPeriodLength = _settlementPeriodLength;
+    }
+
+    /** Function only callable by participants */
+    modifier onlyParticipants() {
+        require(msg.sender == ambassador || msg.sender == expert);
+        _;
     }
 
     /**
@@ -40,17 +77,20 @@ contract OfferMultiSig {
         // require the channel is not open yet
         require(isOpen == false, 'openAgreement already called, isOpen true');
         require(isPending == false, 'openAgreement already called, isPending true');
+        require(msg.sender == ambassador);
 
         isPending = true;
         // check the account opening a channel signed the initial state
-        address _initiator = _getSig(_state, _v, _r, _s);
-        require(ambassador == _initiator);
+        address initiator = _getSig(_state, _v, _r, _s);
+        require(ambassador == initiator);
 
         uint _length = _state.length;
 
         // the open inerface can generalize an entry point for differenct kinds of checks
         // on opening state
         require(address(offerLib).delegatecall(bytes4(keccak256("open(bytes)")), bytes32(32), bytes32(_length), _state));
+
+        emit OpenedAgreement(ambassador);
     }
 
     /**
@@ -64,20 +104,23 @@ contract OfferMultiSig {
 
     function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public payable {
         require(isOpen == false);
+        require(msg.sender == expert);
 
         // no longer allow joining functions to be called
         isOpen = true;
 
         // check that the state is signed by the sender and sender is in the state
-        address _joiningParty = _getSig(_state, _v, _r, _s);
+        address joiningParty = _getSig(_state, _v, _r, _s);
 
-        require(expert == _joiningParty);
+        require(expert == joiningParty);
 
         state = _state;
 
         uint _length = _state.length;
 
         require(address(offerLib).delegatecall(bytes4(keccak256("join(bytes)")), bytes32(32), bytes32(_length), _state));
+
+        emit JoinedAgreement(expert);
     }
 
     /**
@@ -91,8 +134,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public payable {
-
+    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public payable onlyParticipants {
         require(isOpen == true, 'Tried adding state to a close msig wallet');
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
@@ -118,7 +160,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+    function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
 
@@ -147,7 +189,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+    function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
 
@@ -157,7 +199,7 @@ contract OfferMultiSig {
         require(isInSettlementState == 0);
 
         /// @dev must have close flag
-        require(_isClose(_state), 'State did not have a signed close out state');
+        require(_isClosed(_state), 'State did not have a signed close out state');
         require(_hasAll_Sigs(_ambassador, _expert));
 
         isClosed = 1;
@@ -178,9 +220,11 @@ contract OfferMultiSig {
      * @param _sigS output of ECDSA signature of state by both parties
      */
 
-    function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+    function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+
+        require(msg.sender == _expert || msg.sender == _ambassador);
 
         require(_hasAll_Sigs(_ambassador, _expert));
 
@@ -193,6 +237,8 @@ contract OfferMultiSig {
 
         isInSettlementState = 1;
         settlementPeriodEnd = now + settlementPeriodLength;
+
+        emit StartedSettle(msg.sender, sequence, settlementPeriodEnd);
     }
 
     /**
@@ -205,7 +251,7 @@ contract OfferMultiSig {
      * @param _sigS output of ECDSA signature of state by both parties
      */
 
-    function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public {
+    function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
 
@@ -219,15 +265,33 @@ contract OfferMultiSig {
         settlementPeriodEnd = now + settlementPeriodLength;
         state = _state;
         sequence = _getSequence(_state);
+
+        emit SettleStateChallenged(msg.sender, sequence, settlementPeriodEnd);
     }
 
     /**
-     * Return with the settlement period is going to end. This is the amount of time
+     * Return when the settlement period is going to end. This is the amount of time
      * an ambassor or expert has to reply with a new state
      */
 
     function getSettlementPeriodEnd() public view returns (uint) {
         return settlementPeriodEnd;
+    }
+
+    /**
+    * Function to be called by ambassador to set comunication information
+    *
+    * @param _whisperId id on geth node supporting whisper
+    * @param _publicEthUri uri of whisper node
+    */
+
+    function setWhisperInfo(bytes32[2] _whisperId, bytes32 _publicEthUri) external {
+        require(msg.sender == ambassador);
+
+        whisperId = _whisperId;
+        publicEthUri = _publicEthUri;
+
+        emit WhisperCommunicationsSet(publicEthUri, whisperId);
     }
 
     /**
@@ -242,18 +306,29 @@ contract OfferMultiSig {
         }
     }
 
-    // Internal Functions
+    function isChannelOpen() public view returns (bool) {
+        return isOpen;
+    }
+
+    function getWhisperId() public view returns (bytes32[2]) {
+        return whisperId;
+    }
+
+    function getEthUri() public constant returns (bytes32) {
+        return publicEthUri;
+    }
+
 
     /**
      * Function called by closeAgreementWithTimeout or closeAgreement to disperse payouts
      *
-     * @param _s final offer state agreed on by both parties with close flag
+     * @param _state final offer state agreed on by both parties with close flag
      */
 
-    function _finalize(bytes _s) internal {
-        uint _length = _s.length;
+    function _finalize(bytes _state) internal {
+        uint _length = _state.length;
         
-        require(address(offerLib).delegatecall(bytes4(keccak256("finalize(bytes)")), bytes32(32), bytes32(_length), _s));
+        require(address(offerLib).delegatecall(bytes4(keccak256("finalize(bytes)")), bytes32(32), bytes32(_length), _state));
     }
 
     /**
@@ -275,7 +350,7 @@ contract OfferMultiSig {
      * @param _state current offer state
      */
 
-    function _isClose(bytes _state) internal pure returns(bool) {
+    function _isClosed(bytes _state) internal pure returns(bool) {
         uint8 isClosedState;
 
         assembly {
