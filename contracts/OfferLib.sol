@@ -131,7 +131,7 @@ library OfferLib {
         return true;
     }
 
-    function join(bytes _state) public returns (bool) {
+    function join(bytes _state) public view returns (bool) {
         // get the token instance used to allow funds to msig
         NectarToken _t = NectarToken(getTokenAddress(_state));
         

@@ -60,7 +60,6 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     await this.token.enableTransfers();
 
     this.bountyregistry = await BountyRegistry.new(this.token.address);
-<<<<<<< HEAD
     this.staking = ArbiterStaking.at(await this.bountyregistry.staking());
 
     await [arbiter0, arbiter1, arbiter2, arbiter3].forEach(async account => {
