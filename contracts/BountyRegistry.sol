@@ -26,6 +26,8 @@ contract BountyRegistry is Pausable {
         address author;
         uint256 bid;
         uint256 mask;
+        uint256 commitment;
+        uint256 nonce;
         uint256 verdicts;
         string metadata;
     }
@@ -54,6 +56,14 @@ contract BountyRegistry is Pausable {
         uint256 index,
         uint256 bid,
         uint256 mask,
+        uint256 commitment
+    );
+
+    event RevealedAssertion(
+        uint128 bountyGuid,
+        address author,
+        uint256 index,
+        uint256 nonce,
         uint256 verdicts,
         string metadata
     );
@@ -72,6 +82,7 @@ contract BountyRegistry is Pausable {
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
+    uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
     uint256 public constant ARBITER_VOTE_WINDOW = 25; // BLOCKS
 
     // ~4 months in blocks
@@ -195,15 +206,14 @@ contract BountyRegistry is Pausable {
      * @param bountyGuid the guid of the bounty to assert on
      * @param bid the amount of NCT to stake
      * @param mask the artifacts to assert on from the set in the bounty
-     * @param verdicts the verdicts making up this assertion
-     * @param metadata optional metadata to include in the assertion
+     * @param commitment a commitment hash of the verdicts being asserted, equal
+     *      to keccak256(verdicts ^ keccak256(nonce)) where nonce != 0
      */
     function postAssertion(
         uint128 bountyGuid,
         uint256 bid,
         uint256 mask,
-        uint256 verdicts,
-        string metadata
+        uint256 commitment
     )
         external
         whenNotPaused
@@ -222,8 +232,10 @@ contract BountyRegistry is Pausable {
             msg.sender,
             bid,
             mask,
-            verdicts,
-            metadata
+            commitment,
+            0,
+            0,
+            ""
         );
 
         uint256 index = assertionsByGuid[bountyGuid].push(a) - 1;
@@ -234,6 +246,63 @@ contract BountyRegistry is Pausable {
             index,
             a.bid,
             a.mask,
+            a.commitment
+        );
+    }
+
+    // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
+    function uint256_to_bytes(uint256 x) internal pure returns (bytes b) {
+        b = new bytes(32);
+        assembly { mstore(add(b, 32), x) }
+    }
+
+    /**
+     * Function called by security experts to reveal an assertion after bounty
+     * expiration
+     *
+     * @param bountyGuid the guid of the bounty to assert on
+     * @param assertionId the id of the assertion to reveal
+     * @param nonce the nonce used to generate the commitment hash
+     * @param verdicts the verdicts making up this assertion
+     * @param metadata optional metadata to include in the assertion
+     */
+    function revealAssertion(
+        uint128 bountyGuid,
+        uint256 assertionId,
+        uint256 nonce,
+        uint256 verdicts,
+        string metadata
+    )
+        external
+        whenNotPaused
+    {
+        // Check if this bounty has been initialized
+        require(bountiesByGuid[bountyGuid].author != address(0));
+        // Check that this bounty is not active
+        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
+        // Check if the reveal round has closed
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
+
+        // Check our id
+        require(assertionId < assertionsByGuid[bountyGuid].length);
+
+        Assertion storage a = assertionsByGuid[bountyGuid][assertionId];
+        require(a.author == msg.sender);
+        require(a.nonce == 0);
+
+        // Check our commitment hash
+        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ uint256(keccak256(uint256_to_bytes(nonce))))));
+        require(commitment == a.commitment);
+
+        a.nonce = nonce;
+        a.verdicts = verdicts;
+        a.metadata = metadata;
+
+        emit RevealedAssertion(
+            bountyGuid,
+            a.author,
+            assertionId,
+            a.nonce,
             a.verdicts,
             a.metadata
         );
@@ -261,10 +330,10 @@ contract BountyRegistry is Pausable {
 
         // Check if this bounty has been initialized
         require(bounty.author != address(0));
-        // Check if the deadline has expired
-        require(bounty.expirationBlock <= block.number);
+        // Check that the reveal round has closed 
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW)  <= block.number);
         // Check if the voting window has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) > block.number);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
 
         bounty.verdicts.push(verdicts);
         bounty.voters.push(msg.sender);
@@ -292,10 +361,8 @@ contract BountyRegistry is Pausable {
 
         // Check if this bounty has been initialized
         require(bounty.author != address(0));
-        // Check if the deadline has expired
-        require(bounty.expirationBlock <= block.number);
-        // Check if the voting window has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) <= block.number);
+        // Check that the voting round has closed
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) <= block.number);
 
         bountiesByGuid[bountyGuid].resolved = true;
 
@@ -337,7 +404,7 @@ contract BountyRegistry is Pausable {
      * @param bountyAmount the amount the bounty was put up for
      */
 
-    function disperseRewards(uint128 bountyGuid, uint256 verdictWithHighestCount, uint256 bountyAmount) constant private {
+    function disperseRewards(uint128 bountyGuid, uint256 verdictWithHighestCount, uint256 bountyAmount) private {
         uint256 numLosers = 0;
         uint256 i = 0;
         uint256 pot = bountyAmount;
@@ -348,7 +415,7 @@ contract BountyRegistry is Pausable {
 
         for (i = 0; i < assertions.length; i++) {
             // TODO: For now, verdicts are all-or-nothing
-            if (assertions[i].verdicts != verdictWithHighestCount) {
+            if (assertions[i].nonce == 0 || assertions[i].verdicts != verdictWithHighestCount) {
                 pot = pot.add(assertions[i].bid);
                 numLosers = numLosers.add(1);
             }
@@ -364,7 +431,7 @@ contract BountyRegistry is Pausable {
         uint256 reward = 0;
 
         for (i = 0; i < assertions.length; i++) {
-            if (assertions[i].verdicts == verdictWithHighestCount) {
+            if (assertions[i].nonce != 0 && assertions[i].verdicts == verdictWithHighestCount) {
                 reward = assertions[i].bid.add(split);
                 // TODO: Don't revert if one transfer fails, what to do?
                 // Transfers are not expected to ever fail though
@@ -383,8 +450,8 @@ contract BountyRegistry is Pausable {
      *  @param seed random number for reprocucing
      *  @param range end range for random number
      */
-    function randomGen(uint seed, int256 range) constant returns (int256 randomNumber) {
-        return int256(int256(sha3(block.blockhash(block.number-1), seed ))%range);
+    function randomGen(uint seed, int256 range) internal view returns (int256 randomNumber) {
+        return int256(int256(keccak256(abi.encodePacked(blockhash(block.number-1), seed ))) % range);
     }
 
     /**
@@ -393,7 +460,7 @@ contract BountyRegistry is Pausable {
      * @param bountyGuid the guid of the bounty
      */
 
-    function getWeightedRandomArbiter(uint128 bountyGuid) public constant returns (address voter) {
+    function getWeightedRandomArbiter(uint128 bountyGuid) public view returns (address voter) {
         require(bountiesByGuid[bountyGuid].author != address(0));
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];

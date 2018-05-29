@@ -31,8 +31,15 @@ async function postBounty(token, bountyregistry, from, amount, url, duration) {
 }
 
 async function postAssertion(token, bountyregistry, from, bountyGuid, bid, mask, verdicts, metadata) {
+  let nonce = utils.bufferToHex(utils.sha3(utils.toBuffer(Math.random() * (1 << 30))));
+  let commitment = utils.sha3(verdicts, utils.sha3(nonce));
+
   await token.approve(bountyregistry.address, bid.add(AssertionFee), { from });
-  return await bountyregistry.postAssertion(bountyGuid, bid, mask, verdicts, metadata, { from });
+  return nonce, await bountyregistry.postAssertion(bountyGuid, bid, mask, commitment, { from });
+}
+
+async function revealAssertion(token, bountyregistry, from, bountyGuid, assertionId, nonce, verdicts, metadata) {
+
 }
 
 async function settleBounty(bountyregistry, from, bountyGuid) {
@@ -144,7 +151,8 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let bid = ether(20);
       let tx0 = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx0.logs[0].args.guid;
-      let tx1 = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo");
+      let nonce, tx1 = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1, "foo");
+      await advanceToBlock(
       let index = tx1.logs[0].args.index;
 
       let expert0Balance = await this.token.balanceOf(expert0);
