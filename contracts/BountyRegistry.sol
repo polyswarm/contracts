@@ -281,7 +281,7 @@ contract BountyRegistry is Pausable {
         // Check that this bounty is not active
         require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
         // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number);
 
         // Check our id
         require(assertionId < assertionsByGuid[bountyGuid].length);
@@ -291,7 +291,8 @@ contract BountyRegistry is Pausable {
         require(a.nonce == 0);
 
         // Check our commitment hash
-        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ uint256(keccak256(uint256_to_bytes(nonce))))));
+        uint256 hashed_nonce = uint256(keccak256(uint256_to_bytes(nonce)));
+        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce)));
         require(commitment == a.commitment);
 
         a.nonce = nonce;
