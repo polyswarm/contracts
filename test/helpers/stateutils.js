@@ -1,5 +1,6 @@
 const Buffer = require('buffer').Buffer
 const util = require('ethereumjs-util')
+const Web3Utils = require('web3-utils')
 
 module.exports = {
 
@@ -9,16 +10,23 @@ module.exports = {
     return this.padBytes32(web3.toHex(input))
   },
 
-  marshallState: function marshallState(inputs, log) {
+  marshallState: function marshallState(inputs) {
     var m = this.getBytes(inputs[0])
 
     for(var i=1; i<inputs.length;i++) {
-      if (log) {
-        console.log(m + '\n');
-      }
       m += this.getBytes(inputs[i]).substr(2, this.getBytes(inputs[i]).length)
     }
     return m
+  },
+
+  convertToParts: function convertToParts(input) {
+    var m = [];
+
+    for(var i=0; i < input.length; i+=32) {
+      m.push(Web3Utils.stringToHex(input.slice(i, i + 32)))
+    }
+
+    return m;
   },
 
   padBytes32: function padBytes32(data){

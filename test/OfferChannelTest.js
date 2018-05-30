@@ -21,8 +21,7 @@ let metadata
 let nectar;
 let nectaraddress;
 let publicEthUri = '127.0.0.1:37713'
-let whisperId = '0c003bdbdc54147f76b2dfec642fc878b8005e3c5ae58af5bb6690040068b269'
-
+let ambassadorWhisperPublicKey = '04e37d2d06f7dba7483dde179586b840b3edf91476681eeed903c0d2110c1a54ae0a51278d3e6009ac44325bd91685d67baaefc7ca3d3929a5f20279d1a5550c46';
 // offer channel contrat
 let msig
 
@@ -74,20 +73,20 @@ contract('OfferMultiSig', function(accounts) {
 
     let offerChannel = await registry.getParticipantsChannel(ambassador, expert);
 
-    const whisperparts = [Utils.getBytes(whisperId.slice(0,32)), Utils.getBytes(whisperId.slice(32,64))];
+    const whisperparts = Utils.convertToParts(ambassadorWhisperPublicKey);
 
     msig = await web3.eth.contract(offerABI).at(offerChannel);
 
-    await msig.setWhisperInfo(whisperparts, Utils.getBytes(publicEthUri), { from: ambassador });
+    await msig.setWhisperInfo(whisperparts, Utils.getBytes(publicEthUri), { from: ambassador, gas: 400000 });
 
   })
 
   it("can get whisper info", async () => {
-    let wid = await msig.getWhisperId();
+    let key = await msig.getAmbassadorWhisperPublicKey();
 
-    wid = wid.map(Web3Utils.hexToString).join('');
+    key = key.map(Web3Utils.hexToString).join('');
 
-    assert.equal(wid, whisperId);
+    assert.equal(key, ambassadorWhisperPublicKey);
   })
 
   it("can get eth uri", async () => {

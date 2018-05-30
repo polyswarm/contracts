@@ -13,7 +13,8 @@ contract OfferRegistry {
     event InitializedChannel(
         address msig,
         address ambassador,
-        address expert
+        address expert,
+        uint128 guid
     );
 
     uint128[] public channelsGuids;
@@ -54,7 +55,7 @@ contract OfferRegistry {
 
         channelsGuids.push(guid);
 
-        emit InitializedChannel(msig, _ambassador, _expert);
+        emit InitializedChannel(msig, _ambassador, _expert, guid);
     }
 
     /**

@@ -7,7 +7,7 @@ contract OfferMultiSig {
 
     event WhisperCommunicationsSet(
         bytes32 publicEthUri,
-        bytes32[2] whisperId
+        bytes32[5] ambassadorWhisperPublicKey
     );
 
     event OpenedAgreement(
@@ -16,6 +16,11 @@ contract OfferMultiSig {
 
     event JoinedAgreement(
         address _expert
+    );
+
+    event ClosedAgreement(
+        address _expert,
+        address _ambassador
     );
 
     event StartedSettle(
@@ -44,7 +49,7 @@ contract OfferMultiSig {
     uint public settlementPeriodEnd; // The time when challenges are no longer accepted after
 
     bytes32 public publicEthUri; // a geth node running whisper (shh)
-    bytes32[2] public whisperId; // a whisper id created on the above node (all messages will be publicly viewable in beta)
+    bytes32[5] public ambassadorWhisperPublicKey; // a whisper id created on the above node (all messages will be publicly viewable in beta)
     bytes public state; // the current state
 
     constructor(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public {
@@ -207,6 +212,9 @@ contract OfferMultiSig {
 
         _finalize(_state);
         isOpen = false;
+
+        emit ClosedAgreement(_expert, _ambassador);
+
     }
 
 
@@ -281,17 +289,17 @@ contract OfferMultiSig {
     /**
     * Function to be called by ambassador to set comunication information
     *
-    * @param _whisperId id on geth node supporting whisper
+    * @param _ambassadorWhisperPublicKey id on geth node supporting whisper
     * @param _publicEthUri uri of whisper node
     */
 
-    function setWhisperInfo(bytes32[2] _whisperId, bytes32 _publicEthUri) external {
+    function setWhisperInfo(bytes32[5] _ambassadorWhisperPublicKey, bytes32 _publicEthUri) external {
         require(msg.sender == ambassador);
 
-        whisperId = _whisperId;
+        ambassadorWhisperPublicKey = _ambassadorWhisperPublicKey;
         publicEthUri = _publicEthUri;
 
-        emit WhisperCommunicationsSet(publicEthUri, whisperId);
+        emit WhisperCommunicationsSet(publicEthUri, ambassadorWhisperPublicKey);
     }
 
     /**
@@ -310,8 +318,8 @@ contract OfferMultiSig {
         return isOpen;
     }
 
-    function getWhisperId() public view returns (bytes32[2]) {
-        return whisperId;
+    function getAmbassadorWhisperPublicKey() public view returns (bytes32[5]) {
+        return ambassadorWhisperPublicKey;
     }
 
     function getEthUri() public constant returns (bytes32) {
