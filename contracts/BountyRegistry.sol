@@ -324,7 +324,7 @@ contract BountyRegistry is Pausable {
      * @param bountyAmount the amount the bounty was put up for
      */
 
-    function disperseRewards(uint128 bountyGuid, uint256 verdictWithHighestCount, uint256 bountyAmount) constant private {
+    function disperseRewards(uint128 bountyGuid, uint256 verdictWithHighestCount, uint256 bountyAmount) internal returns (bool) {
         uint256 numLosers = 0;
         uint256 i = 0;
         uint256 pot = bountyAmount;
@@ -362,6 +362,7 @@ contract BountyRegistry is Pausable {
         // Transfer remainder of pot to arbiter, handles fractional NCT remainders
         require(token.transfer(getWeightedRandomArbiter(bountyGuid), split.add(fees).add(remainder)));
 
+        return true;
     }
 
     /**
@@ -370,8 +371,8 @@ contract BountyRegistry is Pausable {
      *  @param seed random number for reprocucing
      *  @param range end range for random number
      */
-    function randomGen(uint seed, int256 range) constant returns (int256 randomNumber) {
-        return int256(int256(sha3(block.blockhash(block.number-1), seed ))%range);
+    function randomGen(uint seed, int256 range) constant private returns (int256 randomNumber) {
+        return int256(uint256(keccak256(blockhash(block.number-1), seed ))%range);
     }
 
     /**
