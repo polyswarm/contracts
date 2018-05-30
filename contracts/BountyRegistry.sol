@@ -253,6 +253,8 @@ contract BountyRegistry is Pausable {
         require(bounty.expirationBlock <= block.number);
         // Check if the voting window has closed
         require(bounty.votingLimitBlock > block.number);
+        // Check to make sure arbiters can't double vote
+        require(didArbiterVote(msg.sender, bountyGuid) == false);
 
         bounty.verdicts.push(verdicts);
         bounty.voters.push(msg.sender);
@@ -260,6 +262,30 @@ contract BountyRegistry is Pausable {
         staking.recordBounty(msg.sender, bountyGuid, block.number);
         
         emit NewVerdict(bountyGuid, verdicts);
+    }
+
+    /**
+     * Function to see if an arbiter has voted
+     *
+     * @param bountyGuid - the guid of the bounty
+     * @param arbiter - the address of the arbiter
+     */
+
+    function didArbiterVote(address arbiter, uint128 bountyGuid) view public returns (bool) {
+
+        require(arbiters[arbiter]);
+
+        Bounty memory bounty = bountiesByGuid[bountyGuid];
+
+        require(bounty.voters.length != 0);
+
+        for (uint i = 0; i < bounty.voters.length; i++) {
+            if (bounty.voters[i] == arbiter) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -371,8 +397,8 @@ contract BountyRegistry is Pausable {
      *  @param seed random number for reprocucing
      *  @param range end range for random number
      */
-    function randomGen(uint seed, int256 range) constant private returns (int256 randomNumber) {
-        return int256(uint256(keccak256(blockhash(block.number-1), seed ))%range);
+    function randomGen(uint seed, uint256 range) constant private returns (int256 randomNumber) {
+        return int256(uint256(keccak256(blockhash(block.number-1), seed )) % range);
     }
 
     /**
@@ -386,11 +412,11 @@ contract BountyRegistry is Pausable {
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];
         uint i;
-        int256 sum;
+        uint256 sum;
         int256 randomNum;
 
         for (i = 0; i < bounty.voters.length; i++) {
-            sum += int256(token.balanceOf(bounty.voters[i]));
+            sum = sum.add(token.balanceOf(bounty.voters[i]));
         }
 
         randomNum = randomGen(block.number, sum);
