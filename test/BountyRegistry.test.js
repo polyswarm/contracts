@@ -44,6 +44,7 @@ async function voteOnBounty(bountyregistry, from, bountyGuid, verdicts) {
 }
 
 contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, expert1, arbiter0, arbiter1, arbiter2, arbiter3]) {
+
   before(async function () {
     // Advance to the next block to correctly read time in the solidity "now" function interpreted by testrpc
     await advanceBlock();
