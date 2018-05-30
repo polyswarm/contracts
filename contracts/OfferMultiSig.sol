@@ -5,9 +5,8 @@ contract OfferMultiSig {
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
 
-    event WhisperCommunicationsSet(
-        bytes32 publicEthUri,
-        bytes32[5] ambassadorWhisperPublicKey
+    event CommunicationsSet(
+        bytes32 websocketUri
     );
 
     event OpenedAgreement(
@@ -48,8 +47,7 @@ contract OfferMultiSig {
     uint public isInSettlementState; // meta channel is in settling 1: Not settling 0
     uint public settlementPeriodEnd; // The time when challenges are no longer accepted after
 
-    bytes32 public publicEthUri; // a geth node running whisper (shh)
-    bytes32[5] public ambassadorWhisperPublicKey; // a whisper id created on the above node (all messages will be publicly viewable in beta)
+    bytes32 public websocketUri; // a geth node running whisper (shh)
     bytes public state; // the current state
 
     constructor(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public {
@@ -289,17 +287,15 @@ contract OfferMultiSig {
     /**
     * Function to be called by ambassador to set comunication information
     *
-    * @param _ambassadorWhisperPublicKey id on geth node supporting whisper
-    * @param _publicEthUri uri of whisper node
+    * @param _websocketUri uri of whisper node
     */
 
-    function setWhisperInfo(bytes32[5] _ambassadorWhisperPublicKey, bytes32 _publicEthUri) external {
+    function setCommunicationUri(bytes32 _websocketUri) external {
         require(msg.sender == ambassador);
 
-        ambassadorWhisperPublicKey = _ambassadorWhisperPublicKey;
-        publicEthUri = _publicEthUri;
+        websocketUri = _websocketUri;
 
-        emit WhisperCommunicationsSet(publicEthUri, ambassadorWhisperPublicKey);
+        emit CommunicationsSet(websocketUri);
     }
 
     /**
@@ -318,12 +314,8 @@ contract OfferMultiSig {
         return isOpen;
     }
 
-    function getAmbassadorWhisperPublicKey() public view returns (bytes32[5]) {
-        return ambassadorWhisperPublicKey;
-    }
-
-    function getEthUri() public constant returns (bytes32) {
-        return publicEthUri;
+    function getWebsocketUri() public constant returns (bytes32) {
+        return websocketUri;
     }
 
 
