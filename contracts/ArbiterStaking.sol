@@ -38,7 +38,7 @@ contract ArbiterStaking is Pausable {
         uint256 blockNumber;
     }
 
-    event NewBounty(
+    event BountyRecorded(
         uint128 indexed guid,
         uint256 blockNumber
     );
@@ -84,7 +84,7 @@ contract ArbiterStaking is Pausable {
     {
         // Ensure we are depositing something
         require(_value > 0);
-        // Ensure we're being called from he right token contract
+        // Ensure we are called from he right token contract
         require(_tokenContract == address(token));
         // Ensure that we are not staking more than the maximum
         require(balanceOf(_from).add(_value) <= MAXIMUM_STAKE);
@@ -149,6 +149,8 @@ contract ArbiterStaking is Pausable {
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[msg.sender];
 
+        require(value <= withdrawableBalanceOf(msg.sender));
+
         // Determine which deposits we will modifiy
         for (uint256 end = 0; end < ds.length; end++) {
             if (ds[end].blockNumber <= latest_block) {
@@ -175,10 +177,12 @@ contract ArbiterStaking is Pausable {
         for (uint256 i = 0; i < ds.length.sub(end); i++) {
             ds[i] = ds[i.add(end)];
         }
+
         for (i = ds.length.sub(end); i < ds.length; i++) {
             delete ds[i];
         }
-        ds.length -= end;
+
+        ds.length = ds.length.sub(end);
 
         // Do the transfer
         token.safeTransfer(msg.sender, value);
@@ -186,11 +190,11 @@ contract ArbiterStaking is Pausable {
     }
 
     /**
-     * Is an address an elligible arbiter?
+     * Is an address an eligible arbiter?
      * @param addr The address to validate
-     * @return true if address is elligible else false
+     * @return true if address is eligible else false
      */
-    function isElligible(address addr) public view returns (bool) {
+    function isEligible(address addr) public view returns (bool) {
         uint256 num;
         uint256 den;
         (num, den) = arbiterResponseRate(addr);
@@ -225,7 +229,7 @@ contract ArbiterStaking is Pausable {
             bounties[start] = Bounty(bountyGuid, blockNumber);
             bountyGuidToIndex[bountyGuid] = start;
 
-            emit NewBounty(bountyGuid, blockNumber);
+            emit BountyRecorded(bountyGuid, blockNumber);
         }
 
         bountyResponseByGuidAndAddress[bountyGuid][arbiter] = true;
