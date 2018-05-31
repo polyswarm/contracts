@@ -207,6 +207,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
 
+      await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
+      await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
+
+      await advanceToBlock(web3.eth.blockNumber + 10);
+
       await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0).should.be.rejectedWith(EVMRevert);
     });
@@ -274,6 +279,28 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       expert1Balance.should.be.bignumber.equal(ether(100000000).sub(AssertionFee));
     });
 
+
+    it('should return funds if no one votes', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
+      let guid = tx.logs[0].args.guid;
+
+      await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
+      await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
+      await advanceToBlock(web3.eth.blockNumber + 30);
+
+      await settleBounty(this.bountyregistry, arbiter0, guid);
+
+      let expert0Balance = await this.token.balanceOf(expert0);
+      let expert1Balance = await this.token.balanceOf(expert1);
+
+      // init - assertionFee
+      expert0Balance.should.be.bignumber.equal(ether(100000000).sub(AssertionFee));
+      expert1Balance.should.be.bignumber.equal(ether(100000000).sub(AssertionFee));
+    });
+
+
     it('should only allow arbiters to settle bounties', async function() {
       let amount = ether(10);
       let bid = ether(20);
@@ -293,21 +320,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     it('should allow removing arbiters', async function() {
       await this.bountyregistry.removeArbiter(arbiter0, web3.eth.blockNumber);
 
-      let amount = ether(10);
-      let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
-      let guid = tx.logs[0].args.guid;
-      await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
-      await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
-      await advanceToBlock(web3.eth.blockNumber + 10);
-
-      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
-
-      await advanceToBlock(web3.eth.blockNumber + 20);
-
-      await settleBounty(this.bountyregistry, arbiter0, guid).should.be.rejectedWith(EVMRevert);
+      await this.bountyregistry.removeArbiter(arbiter1, web3.eth.blockNumber, { from: arbiter0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should allow removing and readding arbiters', async function() {
@@ -318,19 +331,13 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let bid = ether(20);
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 10);
       let guid = tx.logs[0].args.guid;
+      
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0, "foo");
       await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1, "bar");
 
       await advanceToBlock(web3.eth.blockNumber + 10);
 
-      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
-
-      await advanceToBlock(web3.eth.blockNumber + 20);
-
-      await settleBounty(this.bountyregistry, arbiter0, guid).should.be.fulfilled;
+      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x0).should.be.fulfilled;
     });
 
     it('should calculate arbiter candidates', async function() {
