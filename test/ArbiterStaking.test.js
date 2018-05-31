@@ -242,30 +242,5 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       is_arbiter = await this.staking.isEligible(arbiter);
       is_arbiter.should.be.equal(false);
     });
-
-    it('should correctly handle out of order bounty insertions', async function() {
-      let is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(false);
-
-      let value = ether('10000000');
-      let blockNumber = web3.eth.blockNumber;
-
-      await this.token.approve(this.staking.address, value, {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit(value, { from: arbiter }).should.be.fulfilled;
-      tx.logs[0].args.from.should.be.bignumber.equal(arbiter);
-      tx.logs[0].args.value.should.be.bignumber.equal(value);
-
-      for (let i = 0; i < 9; i++) {
-        await this.staking.recordBounty(arbiter, i + 1, blockNumber - 2 * i, { from: owner }).should.be.fulfilled;
-      }
-      await this.staking.recordBounty(owner, 10, blockNumber - STAKE_DURATION, { from: owner }).should.be.fulfilled;
-      await this.staking.recordBounty(owner, 11, blockNumber, { from: owner }).should.be.fulfilled;
-      is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(true);
-
-      await this.staking.recordBounty(owner, 12, blockNumber, { from: owner });
-      is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(false);
-    });
   });
 });
