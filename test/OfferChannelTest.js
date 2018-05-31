@@ -26,10 +26,6 @@ let msig
 
 let registry
 
-// channel participants
-let ambassador
-let expert
-
 // sig storage
 let s0sigA
 let s0sigB
@@ -48,21 +44,17 @@ let s2marshall
 
 
 
-contract('OfferMultiSig', function(accounts) {
+contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   before(async () => {
-    ambassador = accounts[1];
-    expert = accounts[2];
-
     nectar = await NectarToken.new();
     nectaraddress = nectar.address;
+    registry = await OfferRegistry.new(nectaraddress);
     nectar.mint(ambassador, 2000);
   })
 
   it("deploy MultiSig less than 60 seconds or 90 days fails", async () => {
     let settlementPeriodLength = 60; // seconds
-
-    registry = await OfferRegistry.new();
 
     // TODO: Use EVMRevert helper
     try {
@@ -82,8 +74,6 @@ contract('OfferMultiSig', function(accounts) {
 
   it("deploy MultiSig with 60 second settlement period length", async () => {
     let settlementPeriodLength = 60; // seconds
-
-    registry = await OfferRegistry.new();
 
     let tx = await registry.initializeOfferChannel(guid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
 

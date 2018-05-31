@@ -4,6 +4,8 @@ contract OfferMultiSig {
 
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
+    uint256 public constant MIN_SETTLEMENT_PERIOD = 60 seconds;
+    uint256 public constant MAX_SETTLEMENT_PERIOD = 90 days;
 
     event CommunicationsSet(
         bytes32 websocketUri
@@ -34,13 +36,11 @@ contract OfferMultiSig {
         uint settlementPeriodEnd
     );
 
-    uint256 public constant MIN_SETTLEMENT_PERIOD = 60 seconds;
-    uint256 public constant MAX_SETTLEMENT_PERIOD = 90 days;
-
-    address public offerLib;  // Address of offer library
+    address public nectarAddress; // Address of offer nectar token
     address public ambassador; // Address of first channel participant
     address public expert; // Address of second channel participant
-
+    address public offerLib;
+    
     bool public isOpen = false; // true when both parties have joined
     bool public isPending = false; // true when waiting for counterparty to join agreement
 
@@ -50,19 +50,21 @@ contract OfferMultiSig {
     uint public isInSettlementState; // meta channel is in settling 1: Not settling 0
     uint public settlementPeriodEnd; // The time when challenges are no longer accepted after
 
-    bytes32 public websocketUri; // a geth node running whisper (shh)
     bytes public state; // the current state
+    bytes32 public websocketUri; // a geth node running whisper (shh)
 
-    constructor(address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) public {
-        require(_offerLib != address(0), 'No offer lib provided to Msig constructor');
-        require(_ambassador != address(0), 'No ambassador lib provided to Msig constructor');
-        require(_expert != address(0), 'No expert lib provided to Msig constructor');
+    constructor(address _offerLib, address _nectarAddress, address _ambassador, address _expert, uint _settlementPeriodLength) public {
+        require(_offerLib != address(0), 'No offer lib provided to constructor');
+        require(_ambassador != address(0), 'No ambassador lib provided to constructor');
+        require(_expert != address(0), 'No expert provided to constructor');
+        require(_nectarAddress != address(0), 'No token provided to constructor');
         require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD, 'Settlement peroid of range');
 
         offerLib = _offerLib;
         ambassador = _ambassador;
         expert = _expert;
         settlementPeriodLength = _settlementPeriodLength;
+        nectarAddress = _nectarAddress;
     }
 
     /** Function only callable by participants */
@@ -85,6 +87,7 @@ contract OfferMultiSig {
         require(isOpen == false, 'openAgreement already called, isOpen true');
         require(isPending == false, 'openAgreement already called, isPending true');
         require(msg.sender == ambassador);
+        require(getTokenAddress(_state) == nectarAddress);
 
         // check the account opening a channel signed the initial state
         address initiator = _getSig(_state, _v, _r, _s);
@@ -96,6 +99,7 @@ contract OfferMultiSig {
         state = _state;
 
         uint _length = _state.length;
+
 
         // the open inerface can generalize an entry point for differenct kinds of checks
         // on opening state
@@ -117,6 +121,7 @@ contract OfferMultiSig {
         require(isOpen == false);
         require(msg.sender == expert);
         require(isPending);
+        require(getTokenAddress(_state) == nectarAddress);
 
         // check that the state is signed by the sender and sender is in the state
         address joiningParty = _getSig(_state, _v, _r, _s);
@@ -129,6 +134,7 @@ contract OfferMultiSig {
         isPending = false;
 
         uint _length = _state.length;
+
 
         require(address(offerLib).delegatecall(bytes4(keccak256("join(bytes)")), bytes32(32), bytes32(_length), _state));
 
@@ -150,7 +156,7 @@ contract OfferMultiSig {
         require(isOpen == true, 'Tried adding state to a close msig wallet');
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
-
+        require(getTokenAddress(_state) == nectarAddress);
         // Require both signatures
         require(_hasAll_Sigs(_ambassador, _expert));
 
@@ -175,7 +181,7 @@ contract OfferMultiSig {
     function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
-
+        require(getTokenAddress(_state) == nectarAddress);
         require(settlementPeriodEnd <= now);
         require(isClosed == 0);
         require(isInSettlementState == 1);
@@ -204,7 +210,7 @@ contract OfferMultiSig {
     function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
-
+        require(getTokenAddress(_state) == nectarAddress);
         require(isClosed == 0);
         
         /// @dev make sure we're not in dispute
@@ -238,7 +244,7 @@ contract OfferMultiSig {
     function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
-
+        require(getTokenAddress(_state) == nectarAddress);
         require(msg.sender == _expert || msg.sender == _ambassador);
 
         require(_hasAll_Sigs(_ambassador, _expert));
@@ -269,7 +275,7 @@ contract OfferMultiSig {
     function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
-
+        require(getTokenAddress(_state) == nectarAddress);
         require(_hasAll_Sigs(_ambassador, _expert));
 
         require(isInSettlementState == 1);
@@ -369,6 +375,12 @@ contract OfferMultiSig {
         require(isClosedState == 1);
 
         return true;
+    }
+
+    function getTokenAddress(bytes _state) public pure returns (address _token) {
+        assembly {
+            _token := mload(add(_state,256))
+        }
     }
 
     /**

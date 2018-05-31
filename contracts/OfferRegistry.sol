@@ -23,9 +23,13 @@ contract OfferRegistry {
     mapping (uint128 => OfferChannel) public guidToChannel;
 
     address public offerLib;
+    address public nectarAddress;
 
-    constructor() {
+    constructor(address _nectarAddress) {
+        require(_nectarAddress != address(0));
+
         offerLib = new OfferLib();
+        nectarAddress = _nectarAddress;
     }
 
     /**
@@ -50,7 +54,7 @@ contract OfferRegistry {
             require(OfferMultiSig(participantsToChannel[key]).isChannelOpen() == false);
         }
 
-        address msig = new OfferMultiSig(offerLib, _ambassador, _expert, _settlementPeriodLength);
+        address msig = new OfferMultiSig(offerLib, nectarAddress, _ambassador, _expert, _settlementPeriodLength);
 
         participantsToChannel[key] = msig;
 
