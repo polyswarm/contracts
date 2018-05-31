@@ -76,7 +76,7 @@ contract OfferMultiSig {
      * @param _s output of ECDSA signature of state
      */
 
-    function openAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public payable {
+    function openAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public {
         // require the channel is not open yet
         require(isOpen == false, 'openAgreement already called, isOpen true');
         require(isPending == false, 'openAgreement already called, isPending true');
@@ -97,7 +97,7 @@ contract OfferMultiSig {
     }
 
     /**
-     * Function called by ambassador to complete opening the channel with an ambassador defined in the _state
+     * Function called by expert to complete opening the channel with an ambassador defined in the _state
      * 
      * @param _state offer state from ambassador
      * @param _v the recovery id from signature of state
@@ -105,7 +105,7 @@ contract OfferMultiSig {
      * @param _s output of ECDSA signature of state
      */
 
-    function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public payable {
+    function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public {
         require(isOpen == false);
         require(msg.sender == expert);
 
@@ -137,7 +137,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public payable onlyParticipants {
+    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
         require(isOpen == true, 'Tried adding state to a close msig wallet');
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
