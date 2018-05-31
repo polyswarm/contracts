@@ -416,13 +416,13 @@ contract BountyRegistry is Pausable {
         int256 randomNum;
 
         for (i = 0; i < bounty.voters.length; i++) {
-            sum = sum.add(token.balanceOf(bounty.voters[i]));
+            sum = sum.add(staking.balanceOf(bounty.voters[i]));
         }
 
         randomNum = randomGen(block.number, sum);
 
         for (i = 0; i < bounty.voters.length; i++) {
-            randomNum -= int256(token.balanceOf(bounty.voters[i]));
+            randomNum -= int256(staking.balanceOf(bounty.voters[i]));
 
             if (randomNum <= 0) {
                 voter = bounty.voters[i];
