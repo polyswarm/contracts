@@ -82,8 +82,8 @@ contract BountyRegistry is Pausable {
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
-    uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
     uint256 public constant ARBITER_VOTE_WINDOW = 25; // BLOCKS
+    uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
 
     // ~4 months in blocks
     uint256 public constant STAKE_DURATION = 701333;
@@ -251,6 +251,44 @@ contract BountyRegistry is Pausable {
         );
     }
 
+    /**
+     * Function called by arbiter after bounty expiration to settle with their
+     * ground truth determination and pay out assertion rewards
+     *
+     * @param bountyGuid the guid of the bounty to settle
+     * @param verdicts bitset of verdicts representing ground truth for the
+     *      bounty's artifacts
+     */
+
+    function voteOnBounty(
+        uint128 bountyGuid,
+        uint256 verdicts,
+        bool validBloom
+    )
+        external
+        onlyArbiter
+        whenNotPaused
+    {
+        Bounty storage bounty = bountiesByGuid[bountyGuid];
+
+        // Check if this bounty has been initialized
+        require(bounty.author != address(0));
+        // Check that the bounty has closed 
+        require(bounty.expirationBlock <= block.number);
+        // Check if the voting window has closed
+        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) > block.number);
+        // Check to make sure arbiters can't double vote
+        require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
+
+        bounty.verdicts.push(verdicts);
+        bounty.voters.push(msg.sender);
+        bounty.bloomVotes.push(validBloom);
+
+        staking.recordBounty(msg.sender, bountyGuid, block.number);
+        arbiterVoteResgistryByGuid[bountyGuid][msg.sender] = true;
+        emit NewVerdict(bountyGuid, verdicts);
+    }
+
     // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
     function uint256_to_bytes(uint256 x) internal pure returns (bytes b) {
         b = new bytes(32);
@@ -279,10 +317,10 @@ contract BountyRegistry is Pausable {
     {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0));
-        // Check that this bounty is not active
-        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
+        // Check that the voting round has closed
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(ARBITER_VOTE_WINDOW) <= block.number);
         // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number);
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) > block.number);
         // Zero is defined as an invalid nonce
         require(nonce != 0);
 
@@ -313,44 +351,6 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-     * Function called by arbiter after bounty expiration to settle with their
-     * ground truth determination and pay out assertion rewards
-     *
-     * @param bountyGuid the guid of the bounty to settle
-     * @param verdicts bitset of verdicts representing ground truth for the
-     *      bounty's artifacts
-     */
-
-    function voteOnBounty(
-        uint128 bountyGuid,
-        uint256 verdicts,
-        bool validBloom
-    )
-        external
-        onlyArbiter
-        whenNotPaused
-    {
-        Bounty storage bounty = bountiesByGuid[bountyGuid];
-
-        // Check if this bounty has been initialized
-        require(bounty.author != address(0));
-        // Check that the reveal round has closed 
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW)  <= block.number);
-        // Check if the voting window has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
-        // Check to make sure arbiters can't double vote
-        require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
-
-        bounty.verdicts.push(verdicts);
-        bounty.voters.push(msg.sender);
-        bounty.bloomVotes.push(validBloom);
-
-        staking.recordBounty(msg.sender, bountyGuid, block.number);
-        arbiterVoteResgistryByGuid[bountyGuid][msg.sender] = true;
-        emit NewVerdict(bountyGuid, verdicts);
-    }
-
-    /**
      * Function called after window has closed to add ground truth determination
      *
      * This function will pay out rewards if the the bounty has a super majority
@@ -367,7 +367,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been initialized
         require(bounty.author != address(0));
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) <= block.number);
+        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number);
 
         bountiesByGuid[bountyGuid].resolved = true;
 
@@ -462,7 +462,7 @@ contract BountyRegistry is Pausable {
      *  @param range end range for random number
      */
     function randomGen(uint seed, uint256 range) constant private returns (int256 randomNumber) {
-        return int256(uint256(keccak256(blockhash(block.number-1), seed )) % range);
+        return int256(uint256(keccak256(abi.encodePacked(blockhash(block.number-1), seed))) % range);
     }
 
     /**
