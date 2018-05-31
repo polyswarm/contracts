@@ -1,5 +1,6 @@
 pragma solidity ^0.4.23;
 import "./OfferMultiSig.sol";
+import "./OfferLib.sol";
 
 /// @title Creates new Offer Channel contracts and keeps track of them 
 contract OfferRegistry {
@@ -21,21 +22,25 @@ contract OfferRegistry {
     mapping (bytes32 => address) public participantsToChannel;
     mapping (uint128 => OfferChannel) public guidToChannel;
 
+    address public offerLib;
+
+    constructor() {
+        offerLib = new OfferLib();
+    }
+
     /**
      * Function called by ambassador to initialize an offer contract
      * It deploys a new offer multi sig and saves it for each participant
      * 
-     * @param _offerLib address for OfferLib library
      * @param _ambassador address of ambassador
      * @param _expert address of expert
      * @param _settlementPeriodLength how long the parties have to dispute the settlement offer channel
      */
 
-    function initializeOfferChannel(uint128 guid, address _offerLib, address _ambassador, address _expert, uint _settlementPeriodLength) external {
+    function initializeOfferChannel(uint128 guid, address _ambassador, address _expert, uint _settlementPeriodLength) external {
 
         require(address(0) != _expert);
         require(address(0) != _ambassador);
-        require(address(0) != _offerLib);
         require(msg.sender == _ambassador);
 
         bytes32 key = getParticipantsHash(_ambassador, _expert);
@@ -45,7 +50,7 @@ contract OfferRegistry {
             require(OfferMultiSig(participantsToChannel[key]).isChannelOpen() == false);
         }
 
-        address msig = new OfferMultiSig(_offerLib, _ambassador, _expert, _settlementPeriodLength);
+        address msig = new OfferMultiSig(offerLib, _ambassador, _expert, _settlementPeriodLength);
 
         participantsToChannel[key] = msig;
 
