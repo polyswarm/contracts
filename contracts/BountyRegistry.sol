@@ -282,6 +282,8 @@ contract BountyRegistry is Pausable {
         require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
         // Check if the reveal round has closed
         require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number);
+        // Zero is defined as an invalid nonce
+        require(nonce != 0);
 
         // Check our id
         require(assertionId < assertionsByGuid[bountyGuid].length);

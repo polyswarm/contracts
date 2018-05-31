@@ -240,6 +240,8 @@ contract ArbiterStaking is Pausable {
     function arbiterResponseRate(address arbiter) public view returns (uint256 num, uint256 den) {
         uint256 start = 0;
         if (block.number > stakeDuration) {
+            // Loop required due to "4 month sliding window" requirement,
+            // otherwise we could keep a running average
             for (start = bounties.length.sub(1); start > 0; start--) {
                 if (bounties[start].blockNumber < block.number.sub(stakeDuration)) {
                     break;
