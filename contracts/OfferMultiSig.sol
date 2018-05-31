@@ -34,6 +34,9 @@ contract OfferMultiSig {
         uint settlementPeriodEnd
     );
 
+    uint256 public constant MIN_SETTLEMENT_PERIOD = 60 seconds;
+    uint256 public constant MAX_SETTLEMENT_PERIOD = 90 days;
+
     address public offerLib;  // Address of offer library
     address public ambassador; // Address of first channel participant
     address public expert; // Address of second channel participant
@@ -54,6 +57,7 @@ contract OfferMultiSig {
         require(_offerLib != address(0), 'No offer lib provided to Msig constructor');
         require(_ambassador != address(0), 'No ambassador lib provided to Msig constructor');
         require(_expert != address(0), 'No expert lib provided to Msig constructor');
+        require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD, 'Settlement peroid of range');
 
         offerLib = _offerLib;
         ambassador = _ambassador;
@@ -82,10 +86,14 @@ contract OfferMultiSig {
         require(isPending == false, 'openAgreement already called, isPending true');
         require(msg.sender == ambassador);
 
-        isPending = true;
         // check the account opening a channel signed the initial state
         address initiator = _getSig(_state, _v, _r, _s);
+
         require(ambassador == initiator);
+
+        isPending = true;
+
+        state = _state;
 
         uint _length = _state.length;
 
@@ -108,16 +116,17 @@ contract OfferMultiSig {
     function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public {
         require(isOpen == false);
         require(msg.sender == expert);
-
-        // no longer allow joining functions to be called
-        isOpen = true;
+        require(isPending);
 
         // check that the state is signed by the sender and sender is in the state
         address joiningParty = _getSig(_state, _v, _r, _s);
 
         require(expert == joiningParty);
 
-        state = _state;
+        // no longer allow joining functions to be called
+        isOpen = true;
+
+        isPending = false;
 
         uint _length = _state.length;
 
