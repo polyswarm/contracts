@@ -28,12 +28,12 @@ library OfferLib {
 
     /// @dev Optional State
     // [320-351] Cryptographic hash of the Artifact.
-    // [352-383] The URI of the Artifact.
+    // [352-383] The IPFS URI of the Artifact.
     // [384-415] Engagement Deadline
     // [416-447] Assertion Deadline
     // [448-479] current commitment
-    // [480-511] “malicious” or “benign” - TODO: Change to represent array of verdicts
-    // [512-543] Information derived during Assertion generation
+    // [480-511] bitmap of verdicts
+    // [512-543] meta data
 
 
     function getCloseFlag(bytes _state) public pure returns(uint8 _flag) {
@@ -104,11 +104,11 @@ library OfferLib {
             _guid := mload(add(_state, 288)) // [256-287] A globally-unique identi er for the Listing.
             _amount := mload(add(_state, 320)) // [288-319] The Offer Amount.
             _artifactHash := mload(add(_state, 352)) // [320-351] Cryptographic hash of the Artifact.
-            _artifactURI := mload(add(_state, 384)) // [352-383] The URI of the Artifact.
+            _artifactURI := mload(add(_state, 384)) // [352-383] The IPFS URI of the Artifact.
             _engagementDeadline := mload(add(_state, 416)) // [384-415] Engagement Deadline
             _assertionDeadline := mload(add(_state, 448)) // [416-447] Assertion Deadline
             _commitment := mload(add(_state, 480)) // [448-479] commitment
-            _assertion := mload(add(_state, 512)) // [480-511] “malicious” or “benign”
+            _assertion := mload(add(_state, 512)) // [480-511] bitmap of verdicts
             _meta := mload(add(_state, 544)) // [512-543] Information derived during Assertion generation
         }
     }
