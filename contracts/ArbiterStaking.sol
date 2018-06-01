@@ -33,19 +33,15 @@ contract ArbiterStaking is Pausable {
     mapping(address => Deposit[]) public deposits;
 
     // Bounties
-    struct Bounty {
-        uint128 guid;
-        uint256 blockNumber;
-    }
-
     event BountyRecorded(
         uint128 indexed guid,
         uint256 blockNumber
     );
 
-    Bounty[] public bounties;
+    uint256 public numBounties;
+    mapping(uint128 => bool) public bounties;
+    mapping(address => uint256) public bountyResponses;
     mapping(uint128 => mapping(address => bool)) public bountyResponseByGuidAndAddress;
-    mapping(uint128 => uint256) internal bountyGuidToIndex;
 
     uint256 public stakeDuration;
     NectarToken internal token;
@@ -58,9 +54,6 @@ contract ArbiterStaking is Pausable {
     constructor(address _token, uint256 _stakeDuration) Ownable() public {
         token = NectarToken(_token);
         stakeDuration = _stakeDuration;
-
-        // Push a dummy bounty at index 0
-        bounties.push(Bounty(0, 0));
     }
 
     /**
@@ -213,26 +206,18 @@ contract ArbiterStaking is Pausable {
         require(arbiter != address(0));
         require(blockNumber != 0);
 
-        if (bountyGuidToIndex[bountyGuid] == 0) {
-            // Find a spot for our new bounty, shouldn't be far from end
-            for (uint256 start = bounties.length; start > 0; start--) {
-                if (bounties[start.sub(1)].blockNumber <= blockNumber) {
-                    break;
-                }
-            }
-
-            bounties.length++;
-            for (uint256 i = bounties.length.sub(1); i > start; i--) {
-                bounties[i] = bounties[i.sub(1)];
-            }
-
-            bounties[start] = Bounty(bountyGuid, blockNumber);
-            bountyGuidToIndex[bountyGuid] = start;
-
+        // New bounty
+        if (!bounties[bountyGuid]) {
+            bounties[bountyGuid] = true;
+            numBounties = numBounties.add(1);
             emit BountyRecorded(bountyGuid, blockNumber);
         }
 
-        bountyResponseByGuidAndAddress[bountyGuid][arbiter] = true;
+        // First response to this bounty by this arbiter
+        if (!bountyResponseByGuidAndAddress[bountyGuid][arbiter]) {
+            bountyResponseByGuidAndAddress[bountyGuid][arbiter] = true;
+            bountyResponses[arbiter] = bountyResponses[arbiter].add(1);
+        }
     }
 
     /**
@@ -242,25 +227,7 @@ contract ArbiterStaking is Pausable {
      * @return number of bounties responded to, number of bounties considered
      */
     function arbiterResponseRate(address arbiter) public view returns (uint256 num, uint256 den) {
-        uint256 start = 0;
-        if (block.number > stakeDuration) {
-            // Loop required due to "4 month sliding window" requirement,
-            // otherwise we could keep a running average
-            for (start = bounties.length.sub(1); start > 0; start--) {
-                if (bounties[start].blockNumber < block.number.sub(stakeDuration)) {
-                    break;
-                }
-            }
-        }
-
-        // We go one past, so increment
-        start = start.add(1);
-        den = bounties.length.sub(start);
-
-        for (uint256 i = start; i < bounties.length; i++) {
-            if (bountyResponseByGuidAndAddress[bounties[i].guid][arbiter]) {
-                num = num.add(1);
-            }
-        }
+        num = bountyResponses[arbiter];
+        den = numBounties;
     }
 }

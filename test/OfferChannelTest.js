@@ -3,10 +3,10 @@ const Web3Utils = require('web3-utils');
 const OfferRegistry = artifacts.require("./OfferRegistry.sol")
 const OfferMultiSig = artifacts.require("./OfferMultiSig.sol")
 const NectarToken = artifacts.require("./NectarToken.sol")
-const OfferLib = artifacts.require("./OfferLib.sol")
 const Utils = require('./helpers/stateutils')
 const fs = require('fs')
 const offerABI = JSON.parse(fs.readFileSync(__dirname + '/../build/contracts/OfferMultiSig.json', 'utf8')).abi;
+const revertMessage = 'VM Exception while processing transaction: revert';
 
 // offer state
 let guid = 101;
@@ -26,13 +26,6 @@ let msig
 
 let registry
 
-// channel participants
-let ambassador
-let expert
-
-// lib for interacting with state
-let offerLib
-
 // sig storage
 let s0sigA
 let s0sigB
@@ -51,24 +44,38 @@ let s2marshall
 
 
 
-contract('OfferMultiSig', function(accounts) {
+contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   before(async () => {
-    ambassador = accounts[1];
-    expert = accounts[2];
-
     nectar = await NectarToken.new();
     nectaraddress = nectar.address;
+    registry = await OfferRegistry.new(nectaraddress);
     nectar.mint(ambassador, 2000);
-    offerLib = await OfferLib.new();
   })
 
-  it("deploy MultiSig with 10 second settlement period length", async () => {
-    let settlementPeriodLength = 10; // seconds
+  it("deploy MultiSig less than 60 seconds or 90 days fails", async () => {
+    let settlementPeriodLength = 60; // seconds
 
-    registry = await OfferRegistry.new();
+    // TODO: Use EVMRevert helper
+    try {
+        await registry.initializeOfferChannel(guid, ambassador, expert, 1, { from: ambassador, gas: 5000000 });
+    } catch (err) {
+        assert.equal(err.message, revertMessage, 'Did not revert channel deploy');
+    }
+    
+    try {
+        await registry.initializeOfferChannel(guid, ambassador, expert, 999999999, { from: ambassador, gas: 5000000 });
+    } catch (err) {
+        assert.equal(err.message, revertMessage, 'Did not revert channel deploy');
+    }
+    
 
-    let tx = await registry.initializeOfferChannel(guid, offerLib.address, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
+  })
+
+  it("deploy MultiSig with 60 second settlement period length", async () => {
+    let settlementPeriodLength = 60; // seconds
+
+    let tx = await registry.initializeOfferChannel(guid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
 
     let offerChannel = await registry.getParticipantsChannel(ambassador, expert);
 
@@ -114,11 +121,11 @@ contract('OfferMultiSig', function(accounts) {
   it("ambassador signs state and opens msig agreement", async () => {
     s0sigA = await web3.eth.sign(ambassador, web3.sha3(s0marshall, { encoding: 'hex' }));
 
-    let r = s0sigA.substr(0, 66)
-    let s = "0x" + s0sigA.substr(66, 64)
-    let v = parseInt(s0sigA.substr(130, 2)) + 27
+    let r = s0sigA.substr(0, 66);
+    let s = "0x" + s0sigA.substr(66, 64);
+    let v = parseInt(s0sigA.substr(130, 2)) + 27;
     
-    let receipt = await msig.openAgreement(s0marshall, v, r, s, { from: ambassador })
+    let receipt = await msig.openAgreement(s0marshall, v, r, s, { from: ambassador, gas: 5000000 });
 
   })
 
@@ -311,7 +318,7 @@ contract('OfferMultiSig', function(accounts) {
       errorMessage = err.message;
     }
 
-    assert.equal(errorMessage, 'VM Exception while processing transaction: revert', 'Did not revert the payment');
+    assert.equal(errorMessage, revertMessage, 'Did not revert the payment');
 
   })
 
@@ -377,11 +384,11 @@ contract('OfferMultiSig', function(accounts) {
       errorMessage = err.message;
     }
 
-    assert.equal(errorMessage, 'VM Exception while processing transaction: revert', 'Did not revert the payment');
+    assert.equal(errorMessage, revertMessage, 'Did not revert the payment');
 
   })
 
-  it("can end the close after 10 seconds", async () => {
+  it("can end the close after 60 seconds", async () => {
     const timeout = ms => new Promise(res => setTimeout(res, ms))
 
     const r = s2sigA.substr(0,66)
@@ -404,7 +411,7 @@ contract('OfferMultiSig', function(accounts) {
     sigS.push(s2)
 
     // increase time
-    await timeout(11000);
+    await timeout(61000);
 
     await web3.currentProvider.send({
       jsonrpc: '2.0',
