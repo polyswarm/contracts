@@ -18,7 +18,7 @@ contract BountyRegistry is Pausable {
         string artifactURI;
         uint256 numArtifacts;
         uint256 expirationBlock;
-        bool resolved;
+        address assignedArbiter;
         uint256[8] bloom;
         address[] voters;
         uint256[] verdicts;
@@ -97,6 +97,7 @@ contract BountyRegistry is Pausable {
     mapping (address => bool) public arbiters;
     mapping (uint256 => mapping (uint256 => uint256)) public verdictCountByGuid;
     mapping (uint256 => mapping (address => bool)) public arbiterVoteResgistryByGuid;
+    mapping (uint128 => mapping (address => bool)) public bountySettled;
 
     /**
      * Construct a new BountyRegistry
@@ -110,10 +111,10 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Function to check if an address is a valid arbiter
-    *
-    * @param addr The address to check
-    * @return true if addr is a valid arbiter else false
+     * Function to check if an address is a valid arbiter
+     *
+     * @param addr The address to check
+     * @return true if addr is a valid arbiter else false
      */
     function isArbiter(address addr) public view returns (bool) {
         return arbiters[addr] && staking.isEligible(addr);
@@ -126,13 +127,13 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Function called to add an arbiter, emits an evevnt with the added arbiter
-    * and block number used to calculate their arbiter status based on public
-    * arbiter selection algorithm.
-    *
-    * @param newArbiter the arbiter to add
-    * @param blockNumber the block number the determination to add was
-    *      calculated from
+     * Function called to add an arbiter, emits an evevnt with the added arbiter
+     * and block number used to calculate their arbiter status based on public
+     * arbiter selection algorithm.
+     *
+     * @param newArbiter the arbiter to add
+     * @param blockNumber the block number the determination to add was
+     *      calculated from
      */
     function addArbiter(address newArbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
         require(newArbiter != address(0));
@@ -157,12 +158,12 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Function called by end users and ambassadors to post a bounty
-    *
-    * @param guid the guid of the bounty, must be unique
-    * @param amount the amount of NCT to post as a reward
-    * @param artifactURI uri of the artifacts comprising this bounty
-    * @param durationBlocks duration of this bounty in blocks
+     * Function called by end users and ambassadors to post a bounty
+     *
+     * @param guid the guid of the bounty, must be unique
+     * @param amount the amount of NCT to post as a reward
+     * @param artifactURI uri of the artifacts comprising this bounty
+     * @param durationBlocks duration of this bounty in blocks
      */
     function postBounty(
         uint128 guid,
@@ -224,8 +225,8 @@ contract BountyRegistry is Pausable {
         uint256 mask,
         uint256 commitment
     )
-    external
-    whenNotPaused
+        external
+        whenNotPaused
     {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0));
@@ -260,12 +261,12 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Function called by arbiter after bounty expiration to settle with their
-    * ground truth determination and pay out assertion rewards
-    *
-    * @param bountyGuid the guid of the bounty to settle
-    * @param verdicts bitset of verdicts representing ground truth for the
-    *      bounty's artifacts
+     * Function called by arbiter after bounty expiration to settle with their
+     * ground truth determination and pay out assertion rewards
+     *
+     * @param bountyGuid the guid of the bounty to settle
+     * @param verdicts bitset of verdicts representing ground truth for the
+     *      bounty's artifacts
      */
 
     function voteOnBounty(
@@ -273,9 +274,9 @@ contract BountyRegistry is Pausable {
         uint256 verdicts,
         bool validBloom
     )
-    external
-    onlyArbiter
-    whenNotPaused
+        external
+        onlyArbiter
+        whenNotPaused
     {
         Bounty storage bounty = bountiesByGuid[bountyGuid];
 
@@ -304,14 +305,14 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Function called by security experts to reveal an assertion after bounty
-    * expiration
-    *
-    * @param bountyGuid the guid of the bounty to assert on
-    * @param assertionId the id of the assertion to reveal
-    * @param nonce the nonce used to generate the commitment hash
-    * @param verdicts the verdicts making up this assertion
-    * @param metadata optional metadata to include in the assertion
+     * Function called by security experts to reveal an assertion after bounty
+     * expiration
+     *
+     * @param bountyGuid the guid of the bounty to assert on
+     * @param assertionId the id of the assertion to reveal
+     * @param nonce the nonce used to generate the commitment hash
+     * @param verdicts the verdicts making up this assertion
+     * @param metadata optional metadata to include in the assertion
      */
     function revealAssertion(
         uint128 bountyGuid,
@@ -320,8 +321,8 @@ contract BountyRegistry is Pausable {
         uint256 verdicts,
         string metadata
     )
-    external
-    whenNotPaused
+        external
+        whenNotPaused
     {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0));
@@ -368,29 +369,32 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-     * Function called after window has closed to add ground truth determination
+     * Function to calculate the reward disbursment of a bounty
      *
-     * This function will pay out rewards if the the bounty has a super majority
-     * @param bountyGuid the guid of the bounty to settle
+     * @param bountyGuid the guid of the bounty to calculate
+     * @return Rewards distributed by the bounty
      */
-    function settleBounty(uint128 bountyGuid) external whenNotPaused {
+    function calculateBountyRewards(
+        uint128 bountyGuid
+    )
+        public
+        view
+        returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] expertRewards)
+    {
         Bounty memory bounty = bountiesByGuid[bountyGuid];
         Assertion[] memory assertions = assertionsByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
         require(bounty.author != address(0));
+        // Check if this bounty has been previously resolved for the sender
+        require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
         require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number);
 
-        bountiesByGuid[bountyGuid].resolved = true;
+        expertRewards = new uint256[](assertions.length);
 
         uint256 i = 0;
         uint256 j = 0;
-
-        // These are scaled up by bounty.numArtifacts in the loop below, and are
-        // scaled back down before initiating token transfers
-        uint256[] memory expertRewards = new uint256[](assertions.length);
-        uint256 bountyRefund = 0;
 
         if (assertions.length == 0) {
             // Refund the bounty amount and fees to ambassador
@@ -409,6 +413,7 @@ contract BountyRegistry is Pausable {
                         vote = vote.add(1);
                     }
                 }
+
                 // Three cases: 0: 0 <= T < 1/3, 1: 1/3 <= T < 2/3, 2: 2/3 <= T <= 1
                 vote = vote.mul(3).div(bounty.verdicts.length);
 
@@ -468,45 +473,82 @@ contract BountyRegistry is Pausable {
             }
         }
 
-        // Disburse rewards
+        // Calculate rewards
         uint256 pot = bounty.amount.add(BOUNTY_FEE.add(ASSERTION_FEE.mul(assertions.length)));
         for (i = 0; i < assertions.length; i++) {
             pot = pot.add(assertions[i].bid);
         }
 
-        if (bountyRefund != 0) {
-            token.safeTransfer(bounty.author, bountyRefund.div(bounty.numArtifacts));
-            pot = pot.sub(bountyRefund.div(bounty.numArtifacts));
-        }
+        bountyRefund = bountyRefund.div(bounty.numArtifacts);
+        pot = pot.sub(bountyRefund);
 
         for (i = 0; i < assertions.length; i++) {
-            if (expertRewards[i] != 0) {
-                token.safeTransfer(assertions[i].author, expertRewards[i].div(bounty.numArtifacts));
-                pot = pot.sub(expertRewards[i].div(bounty.numArtifacts));
+            expertRewards[i] = expertRewards[i].div(bounty.numArtifacts);
+            pot = pot.sub(expertRewards[i]);
+        }
+
+        arbiterReward = pot;
+    }
+
+    /**
+     * Function called after window has closed to handle reward disbursal
+     *
+     * This function will pay out rewards if the the bounty has a super majority
+     * @param bountyGuid the guid of the bounty to settle
+     */
+    function settleBounty(uint128 bountyGuid) external whenNotPaused {
+        Bounty storage bounty = bountiesByGuid[bountyGuid];
+        Assertion[] storage assertions = assertionsByGuid[bountyGuid];
+
+        // Check if this bountiesByGuid[bountyGuid] has been initialized
+        require(bounty.author != address(0));
+        // Check if this bounty has been previously resolved for the sender
+        require(!bountySettled[bountyGuid][msg.sender]);
+        // Check that the voting round has closed
+        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number);
+
+        if (bounty.assignedArbiter == address(0)) {
+            bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
+        }
+
+        uint256 bountyRefund;
+        uint256 arbiterReward;
+        uint256[] memory expertRewards;
+        (bountyRefund, arbiterReward, expertRewards) = calculateBountyRewards(bountyGuid);
+
+        bountySettled[bountyGuid][msg.sender] = true;
+
+        // Disburse rewards
+        if (bountyRefund != 0 && bounty.author == msg.sender) {
+            token.safeTransfer(bounty.author, bountyRefund);
+        }
+
+        for (uint256 i = 0; i < assertions.length; i++) {
+            if (expertRewards[i] != 0 && assertions[i].author == msg.sender) {
+                token.safeTransfer(assertions[i].author, expertRewards[i]);
             }
         }
 
-        if (pot != 0) {
-            token.safeTransfer(getWeightedRandomArbiter(bountyGuid), pot);
+        if (arbiterReward != 0 && bounty.assignedArbiter == msg.sender) {
+            token.safeTransfer(bounty.assignedArbiter, arbiterReward);
         }
     }
 
     /**
-    *  Generates a random number from 0 to range based on the last block hash 
-    *
-        *  @param seed random number for reprocucing
-    *  @param range end range for random number
-        */
+     *  Generates a random number from 0 to range based on the last block hash 
+     *
+     *  @param seed random number for reprocucing
+     * @param range end range for random number
+     */
     function randomGen(uint seed, uint256 range) constant private returns (int256 randomNumber) {
         return int256(uint256(keccak256(abi.encodePacked(blockhash(block.number-1), seed))) % range);
     }
 
     /**
-    * Gets a random Arbiter weighted by the amount of Nectar they have
-    *
-        * @param bountyGuid the guid of the bounty
-    */
-
+     * Gets a random Arbiter weighted by the amount of Nectar they have
+     *
+     * @param bountyGuid the guid of the bounty
+     */
     function getWeightedRandomArbiter(uint128 bountyGuid) public view returns (address voter) {
         require(bountiesByGuid[bountyGuid].author != address(0));
 
@@ -533,19 +575,19 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Get the total number of bounties tracked by the contract
-    * @return total number of bounties
-    */
+     * Get the total number of bounties tracked by the contract
+     * @return total number of bounties
+     */
     function getNumberOfBounties() external view returns (uint) {
         return bountyGuids.length;
     }
 
     /**
-    * Gets the number of assertions for a bounty
-    *
-        * @param bountyGuid the guid of the bounty
-        * @return number of assertions for the given bounty
-            */
+     * Gets the number of assertions for a bounty
+     *
+     * @param bountyGuid the guid of the bounty
+     * @return number of assertions for the given bounty
+     */
     function getNumberOfAssertions(uint128 bountyGuid) external view returns (uint) {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0));
@@ -554,11 +596,10 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Gets the vote count for a specific bounty
-    *
-        * @param bountyGuid the guid of the bounty
-        */
-
+     * Gets the vote count for a specific bounty
+     *
+     * @param bountyGuid the guid of the bounty
+     */
     function getVerdictCount(uint128 bountyGuid) external view returns (uint) {
         require(bountiesByGuid[bountyGuid].author != address(0));
 
@@ -566,11 +607,10 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * Gets all the voters for a specific bounty
-    *
-        * @param bountyGuid the guid of the bounty
-        */
-
+     * Gets all the voters for a specific bounty
+     *
+     * @param bountyGuid the guid of the bounty
+     */
     function getVoters(uint128 bountyGuid) external view returns (address[]) {
         require(bountiesByGuid[bountyGuid].author != address(0));
 
@@ -592,11 +632,11 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-    * View function displays most active bounty posters over past
-    * ARBITER_LOOKBACK_RANGE bounties to select future arbiters
-    *
-        * @return sorted array of most active bounty posters
-    */
+     * View function displays most active bounty posters over past
+     * ARBITER_LOOKBACK_RANGE bounties to select future arbiters
+     *
+     * @return sorted array of most active bounty posters
+     */
     function getArbiterCandidates() external view returns (address[]) {
         require(bountyGuids.length > 0);
 
