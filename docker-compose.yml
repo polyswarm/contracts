@@ -1,0 +1,22 @@
+version: '3'
+services:
+    polyswarm-contracts:
+        build:
+            dockerfile: Dockerfile
+            context: .
+        depends_on:
+            - geth
+        environment:
+            - geth=geth
+        ports:
+            - "31337:31337"
+        volumes:
+            - "./build:/build"
+        command: ["./migrate_and_test.sh"]
+    geth:
+        image: "trufflesuite/ganache-cli"
+        ports:
+            - "8545:8545"
+        logging:
+            driver: none
+        command: ["ganache-cli", "--gasLimit", "94000000"]

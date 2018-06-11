@@ -1,0 +1,50 @@
+# TOOD:
+# Change to docker compose
+# Run tests
+
+image: docker
+
+services:
+  - docker:dind
+  
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+
+before_script:
+  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  - apk add --no-cache py-pip
+  - pip install docker-compose
+  
+variables:
+  DOCKER_HUB_REGISTRY: "https://index.docker.io/v1/"
+
+build-master:
+    only: 
+        - master
+    tags:
+        - docker
+    variables:
+        DOCKER_FULL_PATH: "$CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:latest"
+    stage: build
+    script:
+        - docker build -t $DOCKER_FULL_PATH .
+        - docker-compose up -d geth
+        - docker-compose up --exit-code-from polyswarm-contracts
+        - docker-compose down
+        - docker push $DOCKER_FULL_PATH
+
+
+build-non-master:
+    except: 
+        - master
+    tags:
+        - docker
+    variables:
+        DOCKER_FULL_PATH: "$CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:$CI_COMMIT_REF_NAME"
+    stage: build
+    script:
+        - docker build -t $DOCKER_FULL_PATH .
+        - docker-compose up -d geth
+        - docker-compose up --exit-code-from polyswarm-contracts
+        - docker-compose down
+        - docker push $DOCKER_FULL_PATH
