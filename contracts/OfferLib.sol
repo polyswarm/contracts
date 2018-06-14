@@ -126,7 +126,8 @@ library OfferLib {
         NectarToken _t = NectarToken(getTokenAddress(_state));
         // ensure the amount sent to open channel matches the signed state balance
         require(_t.allowance(getPartyA(_state), this) == getBalanceA(_state), 'value does not match ambassador state balance');
-        // complete the tranfer of ambassador approved tokens
+
+        // // complete the tranfer of ambassador approved tokens
         _t.transferFrom(getPartyA(_state), this, getBalanceA(_state));
         return true;
     }
@@ -153,6 +154,17 @@ library OfferLib {
         }
 
         require(getTotal(_state) == _t.balanceOf(this), 'token total deposited does not match state balance');
+    }
+
+    function cancel(bytes _state) public returns (bool) {
+        address _a = getPartyA(_state);
+
+        NectarToken _t = NectarToken(getTokenAddress(_state));
+        // require(getBalanceA(_state) == _t.balanceOf(this), 'tried finalizing token state that does not match bnded value');
+
+        _t.transfer(_a, 1);
+
+        return true;
     }
 
     function finalize(bytes _state) public returns (bool) {
