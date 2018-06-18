@@ -15,6 +15,10 @@ contract OfferMultiSig {
         address _ambassador
     );
 
+    event CanceledAgreement(
+        address _ambassador
+    );
+
     event JoinedAgreement(
         address _expert
     );
@@ -106,6 +110,24 @@ contract OfferMultiSig {
         require(address(offerLib).delegatecall(bytes4(keccak256("open(bytes)")), bytes32(32), bytes32(_length), _state));
 
         emit OpenedAgreement(ambassador);
+    }
+
+
+    /**
+     * Function called by ambassador to cancel a channel that hasn't been joined yet
+     */
+
+    function cancelAgreement() public {
+        // require the channel is not open yet
+        require(isPending == true, 'only a channel in a pending state can be canceled');
+        require(msg.sender == ambassador, 'only an ambassador can cancel an agreement');
+
+        isPending = false;
+
+        // the open inerface can generalize an entry point for differenct kinds of checks
+        require(address(offerLib).delegatecall(bytes4(keccak256("cancel(address)")), nectarAddress));
+
+        emit CanceledAgreement(ambassador);
     }
 
     /**
@@ -229,7 +251,6 @@ contract OfferMultiSig {
         emit ClosedAgreement(_expert, _ambassador);
 
     }
-
 
     /**
      * Function called by ambassador or expert to start initalize a disputed settlement

@@ -1,4 +1,5 @@
 'use strict'
+const OfferLib = artifacts.require("./OfferLib.sol")
 const Web3Utils = require('web3-utils');
 const OfferRegistry = artifacts.require("./OfferRegistry.sol")
 const OfferMultiSig = artifacts.require("./OfferMultiSig.sol")
@@ -101,6 +102,47 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   it("allow nectar transfers", async () => {
     await nectar.enableTransfers({ gas: 1000000 })
+  })
+
+  it("should allow for canceling a pending offer", async () => {
+    let settlementPeriodLength = 60; // seconds
+    
+    await registry.initializeOfferChannel(guid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
+    
+    let offerChannel = await registry.getParticipantsChannel(ambassador, expert);
+
+    let msigToCancel = await web3.eth.contract(offerABI).at(offerChannel);
+
+    let inputs = []
+    inputs.push(0) // is close
+    inputs.push(0) // nonce
+    inputs.push(ambassador) // ambassador address
+    inputs.push(expert) // expert address
+    inputs.push(msigToCancel.address) //  msigToCancel address
+    inputs.push(20) // balance in nectar ambassador
+    inputs.push(0) // balance in nectar expert
+    inputs.push(nectaraddress) // token address
+    let offerLib = await OfferLib.new();
+
+    s0 = inputs
+    s0marshall = Utils.marshallState(inputs)
+
+    s0sigA = await web3.eth.sign(ambassador, web3.sha3(s0marshall, { encoding: 'hex' }));
+
+    let r = s0sigA.substr(0, 66);
+    let s = "0x" + s0sigA.substr(66, 64);
+    let v = parseInt(s0sigA.substr(130, 2)) + 27;
+
+    await nectar.approve(msigToCancel.address, 20, { from: ambassador })
+
+    await msigToCancel.openAgreement(s0marshall, v, r, s, { from: ambassador, gas: 5000000 });
+
+    await msigToCancel.cancelAgreement({ from: ambassador, gas: 5000000 });
+
+    let newBal = await nectar.balanceOf(msigToCancel.address);
+
+    assert.equal(newBal.toNumber(), 0);
+
   })
 
   it("generate initial offer state", async () => {
