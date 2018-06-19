@@ -54,8 +54,8 @@ module.exports = async callback => {
     config.push(`  chain_id: ${chainId}`)
     config.push(`  eth_uri: ${uri}`);
     config.push(`  nectar_token_address: "${nectarToken.address}"`);
-    config.push(`  bounty_registry_address: "${offerRegistry.address}"`);
-    config.push(`  offer_registry_address: "${bountyRegistry.address}"`);
+    config.push(`  bounty_registry_address: "${bountyRegistry.address}"`);
+    config.push(`  offer_registry_address: "${offerRegistry.address}"`);
     // TODO: get real address
     config.push(`  erc20_relay_address: "${'0x0000000000000000000000000000000000000000'}"`);
   }
