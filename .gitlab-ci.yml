@@ -26,11 +26,11 @@ build-master:
         DOCKER_FULL_PATH: "$CI_PROJECT_NAME:latest"
     stage: build
     script:
-        - docker build -t $DOCKER_FULL_PATH .
+        - docker build -t  index.docker.io/polyswarm/polyswarm-contracts .
         - docker-compose up -d geth
         - docker-compose up --exit-code-from polyswarm-contracts
         - docker-compose down
-        - docker login -u "$SWARM_DOCKER_USER" -p "$SWARM_DOCKER_PASSWORD" $DOCKER_SWARM_REGISTRY && docker push index.docker.io/polyswarm-contracts_polyswarm-contracts
+        - docker login -u "$SWARM_DOCKER_USER" -p "$SWARM_DOCKER_PASSWORD" $DOCKER_SWARM_REGISTRY && docker push index.docker.io/polyswarm/polyswarm-contracts
 
 
 build-non-master:
