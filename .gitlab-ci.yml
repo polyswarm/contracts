@@ -14,9 +14,6 @@ before_script:
   - apk add --no-cache py-pip
   - pip install docker-compose
   
-variables:
-  DOCKER_HUB_REGISTRY: "https://index.docker.io/v1/"
-
 build-master:
     only: 
         - master
@@ -30,7 +27,7 @@ build-master:
         - docker-compose up -d geth
         - docker-compose up --exit-code-from polyswarm-contracts
         - docker-compose down
-        - docker login -u "$SWARM_DOCKER_USER" -p "$SWARM_DOCKER_PASSWORD" $DOCKER_SWARM_REGISTRY && docker push index.docker.io/polyswarm/polyswarm-contracts
+        - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_USERNAME" $CI_CUSTOM_DOCKER_HUB_URI && docker push index.docker.io/polyswarm/polyswarm-contracts
 
 
 build-non-master:
