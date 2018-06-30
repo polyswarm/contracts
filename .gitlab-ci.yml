@@ -39,9 +39,7 @@ build-non-master:
         DOCKER_FULL_PATH: "$CI_REGISTRY_IMAGE/$CI_PROJECT_NAME:$CI_COMMIT_REF_NAME"
     stage: build
     script:
-        - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
         - docker build -t $DOCKER_FULL_PATH .
         - docker-compose up -d geth
         - docker-compose up --exit-code-from polyswarm-contracts
         - docker-compose down
-        - docker push $DOCKER_FULL_PATH
