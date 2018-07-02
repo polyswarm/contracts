@@ -27,7 +27,7 @@ build-master:
         - docker-compose up -d geth
         - docker-compose up --exit-code-from polyswarm-contracts
         - docker-compose down
-        - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_USERNAME" $CI_CUSTOM_DOCKER_HUB_URI && docker push index.docker.io/polyswarm/polyswarm-contracts
+        - docker login -u "$CI_CUSTOM_DOCKER_HUB_USERNAME" -p "$CI_CUSTOM_DOCKER_HUB_PASSWORD" $CI_CUSTOM_DOCKER_HUB_URI && docker push index.docker.io/polyswarm/polyswarm-contracts
 
 
 build-non-master:
