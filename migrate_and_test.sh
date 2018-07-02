@@ -1,4 +1,4 @@
 #!/bin/bash
-
-truffle migrate --reset
-truffle test
+sleep 10
+truffle migrate --network development
+truffle test --network development

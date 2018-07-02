@@ -8,15 +8,18 @@ services:
             - geth
         environment:
             - geth=geth
+            - post=9545
         ports:
             - "31337:31337"
         volumes:
             - "./build:/build"
         command: ["./migrate_and_test.sh"]
     geth:
-        image: "trufflesuite/ganache-cli"
+        build:
+            dockerfile: Dockerfile
+            context: .
         ports:
-            - "8545:8545"
+            - "8545:9545"
         logging:
             driver: none
-        command: ["ganache-cli", "--gasLimit", "94000000"]
+        command: ["truffle", "develop", "--log"]
