@@ -6,7 +6,7 @@ COPY ./package.json ./
 
 # install git
 RUN apk update && apk upgrade && \
-    apk add --no-cache bash git openssh
+    apk add --no-cache bash git curl openssh
 
 # adding python (some npm modules need it)
 RUN apk --no-cache add g++ gcc libgcc libstdc++ linux-headers make python
