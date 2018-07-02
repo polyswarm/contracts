@@ -6,7 +6,7 @@ const OfferMultiSig = artifacts.require("./OfferMultiSig.sol")
 const NectarToken = artifacts.require("./NectarToken.sol")
 const Utils = require('./helpers/stateutils')
 const fs = require('fs')
-const offerABI = JSON.parse(fs.readFileSync(__dirname + '/../build/contracts/OfferMultiSig.json', 'utf8')).abi;
+const offerABI = OfferMultiSig.abi;
 const revertMessage = 'VM Exception while processing transaction: revert';
 
 // offer state
@@ -63,13 +63,13 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     } catch (err) {
         assert.equal(err.message, revertMessage, 'Did not revert channel deploy');
     }
-    
+
     try {
         await registry.initializeOfferChannel(guid, ambassador, expert, 999999999, { from: ambassador, gas: 5000000 });
     } catch (err) {
         assert.equal(err.message, revertMessage, 'Did not revert channel deploy');
     }
-    
+
 
   })
 
@@ -92,7 +92,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     let ws = await msig.getWebsocketUri();
 
     ws = Web3Utils.hexToString(ws)
-    
+
     assert.equal(ws, publicWebsocketUri);
   })
 
@@ -106,9 +106,9 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   it("should allow for canceling a pending offer", async () => {
     let settlementPeriodLength = 60; // seconds
-    
+
     await registry.initializeOfferChannel(guid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
-    
+
     let offerChannel = await registry.getParticipantsChannel(ambassador, expert);
 
     let msigToCancel = await web3.eth.contract(offerABI).at(offerChannel);
@@ -166,7 +166,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     let r = s0sigA.substr(0, 66);
     let s = "0x" + s0sigA.substr(66, 64);
     let v = parseInt(s0sigA.substr(130, 2)) + 27;
-    
+
     let receipt = await msig.openAgreement(s0marshall, v, r, s, { from: ambassador, gas: 5000000 });
 
   })
@@ -302,7 +302,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
     s2 = offerState
     s2marshall = Utils.marshallState(offerState)
-    
+
   })
 
   it("both parties sign state: s2", async () => {
