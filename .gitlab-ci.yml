@@ -4,8 +4,7 @@ services:
   - docker:dind
 
 before_script:
-  - apk --no-cache add curl py-pip
-  - pip install docker-compose
+  - apk --no-cache add curl
 
 build-docker:
     tags:
@@ -13,9 +12,6 @@ build-docker:
     stage: test
     script: 
         - docker build -t ${CI_PROJECT_PATH} -f docker/Dockerfile .
-        - docker-compose up -d geth
-        - docker-compose up --exit-code-from polyswarm-contracts
-        - docker-compose down
         
 kick-e2e:
     only: 
@@ -25,4 +21,3 @@ kick-e2e:
     stage: deploy
     script:
        - curl --request POST --form "token=$CI_JOB_TOKEN" --form ref=master https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_META}/trigger/pipeline
-
