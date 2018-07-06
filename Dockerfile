@@ -16,5 +16,3 @@ RUN npm install --quiet node-gyp -g
 RUN npm install
 
 COPY . .
-
-CMD ["./wait_and_run.sh"]
