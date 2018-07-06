@@ -4,7 +4,7 @@ services:
   - docker:dind
 
 before_script:
-  - apk --no-cache add curl pip
+  - apk --no-cache add curl py-pip
   - pip install docker-compose
 
 build-docker:
