@@ -2,18 +2,18 @@ version: '3'
 services:
     contractor:
         depends_on:
-            - geth
+            - homechain
             - sidechain
         image: "polyswarm/contractor"
         environment:
-            - geth=geth
-            - HOME_CHAIN=http://geth:8545
+            - geth=homechain
+            - HOME_CHAIN=http://homechain:8545
             - SIDE_CHAIN=http://sidechain:8545
             - IPFS=http://ipfs:5001
         volumes:
             - "./:/build"
         command: ["./scripts/migrate_and_create_config.sh"]
-    geth:
+    homechain:
         image: "polyswarm/eth-networks/priv-testnet"
         logging:
             driver: none
