@@ -1,4 +1,4 @@
-from node:alpine
+FROM node:alpine
 
 RUN npm install truffle -g
 
@@ -16,3 +16,5 @@ RUN npm install --quiet node-gyp -g
 RUN npm install
 
 COPY . .
+
+CMD ["./scripts/migrate_and_create_config.sh"]
