@@ -12,7 +12,7 @@ module.exports = async callback => {
   const config = [];
 
   if (!args.home && !args.side) {
-    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url>');
+    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --arbiter=<arbiter_address>');
     return;
   }
 
