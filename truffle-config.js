@@ -4,7 +4,7 @@ module.exports = {
   networks: {
     development: {
       host: process.env.geth || '0.0.0.0',
-      port: process.env.post || 8545,
+      port: process.env.port || 8545,
       network_id: '*',
       gas: 5500000,
     },

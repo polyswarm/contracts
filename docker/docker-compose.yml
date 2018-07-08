@@ -2,22 +2,22 @@ version: '3'
 services:
     polyswarm-contracts:
         build:
-            dockerfile: Dockerfile
-            context: .
+            dockerfile: docker/Dockerfile
+            context: ../
         depends_on:
             - geth
         environment:
             - geth=geth
-            - post=9545
+            - port=9545
         ports:
             - "31337:31337"
         volumes:
             - "./build:/build"
-        command: ["./migrate_and_test.sh"]
+        command: ["./scripts/migrate_and_test.sh"]
     geth:
         build:
-            dockerfile: Dockerfile
-            context: .
+            dockerfile: docker/Dockerfile
+            context: ../
         ports:
             - "8545:9545"
         logging:
