@@ -1,8 +1,9 @@
 const Net = require('web3-net');
 const writeFile = require('write');
+const yaml = require('js-yaml')
 const args = require('args-parser')(process.argv);
 const NectarToken = artifacts.require('NectarToken');
-const OfferRegistry = artifacts.require("./OfferRegistry.sol");
+const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
 
@@ -12,20 +13,26 @@ module.exports = async callback => {
   const config = [];
 
   if (!args.home && !args.side) {
-    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --arbiter=<arbiter_address>');
+    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --options=<options_path>');
     return;
   }
 
   if (args.ipfs) {
-    config.push(`ipfs_uri: ${args.ipfs}`)
+    config.push(`ipfs_uri: ${args.ipfs}`);
+  }
+
+  let options = null
+  if (args.options && fs.existsSync(args.options)) {
+    options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
   }
 
   if (args.home) {
-    await deployTo(args.home, args.arbiter, 'homechain');
+    await deployTo(args.home, 'homechain', options);
   }
 
   if (args.side) {
-    await deployTo(args.side, args.arbiter, 'sidechain');
+    // Extra user accounts on the sidechain shouldn't be pre-funded. All funding should happen through a relay.
+    await deployTo(args.side, 'sidechain', null);
   }
 
   writeFile(`${__dirname}/../build/polyswarmd.yml`, config.join('\n'), function(err) {
@@ -41,7 +48,7 @@ module.exports = async callback => {
 
   callback();
 
-  async function deployTo(uri, arbiter, name) {
+  async function deployTo(uri, name, options) {
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
@@ -53,7 +60,7 @@ module.exports = async callback => {
     const chainId = await net.getId();
 
     config.push(`${name}:`);
-    config.push(`  chain_id: ${chainId}`)
+    config.push(`  chain_id: ${chainId}`);
     config.push(`  eth_uri: ${uri}`);
     config.push(`  nectar_token_address: "${nectarToken.address}"`);
     config.push(`  bounty_registry_address: "${bountyRegistry.address}"`);
@@ -68,16 +75,34 @@ module.exports = async callback => {
 
     await nectarToken.enableTransfers();
 
-    if (arbiter && web3.isAddress(arbiter)) {
-      console.log('Setting arbiter to: ' + arbiter);
-      console.log(await web3.eth.blockNumber);
-      const arbiterStaking = ArbiterStaking.at(await bountyRegistry.staking());
-      await nectarToken.approve(arbiterStaking.address, web3.toWei(10000000, 'ether'), { from: arbiter });
-      console.log('Staking......')
-      await arbiterStaking.deposit(web3.toWei(10000000, 'ether'), { from: arbiter });
-      await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber);
+    if (options && options.arbiters) {
+      await Promise.all(options.arbiters
+      .filter(arbiter => web3.isAddress(arbiter))
+      .map(async arbiter => {
+        console.log('Funding arbiter: '+ arbiter);
+          await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'));
+          console.log('Adding arbiter: ' + arbiter);
+          console.log(await web3.eth.blockNumber);
+          await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber);
+
+          // Stake the bounty if in geth's keystore. Otherwise, assume owner will call.
+          const accounts = await web3.eth.accounts;
+          if (accounts.indexOf(arbiter) >= 0) {
+            const arbiterStaking = ArbiterStaking.at(await bountyRegistry.staking());
+            await nectarToken.approve(arbiterStaking.address, web3.toWei(10000000, 'ether'), { from: arbiter });
+            console.log('Staking arbiter: ' + arbiter)
+            await arbiterStaking.deposit(web3.toWei(10000000, 'ether'), { from: arbiter });
+          }
+      }));
     }
 
-
+    if (options && options.accounts) {
+      await Promise.all(options.accounts
+      .filter(account => web3.isAddress(account))
+      .map(async account => {
+        console.log('Minting tokens for ', account);
+        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'));
+      }));
+    }
   }
 };
