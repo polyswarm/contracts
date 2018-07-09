@@ -553,6 +553,11 @@ contract BountyRegistry is Pausable {
         require(bountiesByGuid[bountyGuid].author != address(0));
 
         Bounty memory bounty = bountiesByGuid[bountyGuid];
+
+        if (bounty.voters.length == 0) {
+            return address(0);
+        }
+        
         uint i;
         uint256 sum;
         int256 randomNum;
