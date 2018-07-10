@@ -121,6 +121,9 @@ contract ArbiterStaking is Pausable {
      */
     function withdrawableBalanceOf(address addr) public view returns (uint256) {
         uint256 ret = 0;
+        if (block.number < stakeDuration) {
+            return ret;
+        }
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[addr];
         for (uint256 i = 0; i < ds.length; i++) {
@@ -134,7 +137,7 @@ contract ArbiterStaking is Pausable {
     }
 
     /**
-     * Withdraw staked NCT 
+     * Withdraw staked NCT
      * @param value The amount of NCT to withdraw
      */
     function withdraw(uint256 value) public whenNotPaused {

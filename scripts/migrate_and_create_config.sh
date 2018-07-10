@@ -35,4 +35,4 @@ wait_for_all_unlocked
 wait_for_min_gas_limit
 
 truffle migrate --reset
-truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --arbiter=$ARBITER
+truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --options=$OPTIONS
