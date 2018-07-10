@@ -84,15 +84,6 @@ module.exports = async callback => {
           console.log('Adding arbiter: ' + arbiter);
           console.log(await web3.eth.blockNumber);
           await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber);
-
-          // Stake the bounty if in geth's keystore. Otherwise, assume owner will call.
-          const accounts = await web3.eth.accounts;
-          if (accounts.indexOf(arbiter) >= 0) {
-            const arbiterStaking = ArbiterStaking.at(await bountyRegistry.staking());
-            await nectarToken.approve(arbiterStaking.address, web3.toWei(10000000, 'ether'), { from: arbiter });
-            console.log('Staking arbiter: ' + arbiter)
-            await arbiterStaking.deposit(web3.toWei(10000000, 'ether'), { from: arbiter });
-          }
       }));
     }
 
