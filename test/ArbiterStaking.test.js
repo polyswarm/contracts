@@ -15,7 +15,7 @@ const NectarToken = artifacts.require('NectarToken');
 
 // From contracts/ArbiterStaking.sol
 const STAKE_DURATION = 100;
-const MINIMUM_STAKE = 10000000 * 10 ** 18;     
+const MINIMUM_STAKE = 10000000 * 10 ** 18;
 
 contract('ArbiterStaking', function ([owner, arbiter]) {
   before(async function () {
@@ -93,13 +93,23 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       await advanceBlocks(STAKE_DURATION - 10);
       wb = await this.staking.withdrawableBalanceOf(arbiter);
       wb.should.be.bignumber.equal('1');
- 
+
       await advanceBlocks(10);
       wb = await this.staking.withdrawableBalanceOf(arbiter);
       wb.should.be.bignumber.equal('2');
     });
 
-    it('update the withdrawable balance after a deposit', async function() {
+    it('should return 0 when block.number is less than stakingDuration', async function() {
+      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
+      let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
+      tx.logs[0].args.from.should.be.bignumber.equal(arbiter);
+      tx.logs[0].args.value.should.be.bignumber.equal('1');
+
+      const balance = await this.staking.withdrawableBalanceOf(arbiter);
+      balance.should.be.bignumber.equal('0');
+    });
+
+    it('should reject a deposit where total is over max staking', async function() {
       await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
       await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       let b = await this.staking.balanceOf(arbiter);
@@ -178,17 +188,17 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       b.should.be.bignumber.equal('100');
       wb = await this.staking.withdrawableBalanceOf(arbiter);
       wb.should.be.bignumber.equal('10');
- 
+
       await withdraw('20').should.be.rejectedWith(EVMRevert);
       await withdraw('5').should.be.fulfilled;
       await withdraw('10').should.be.rejectedWith(EVMRevert);
       await withdraw('3').should.be.fulfilled;
-      
+
       await advanceBlocks(10);
 
       await withdraw('25').should.be.rejectedWith(EVMRevert);
       await withdraw('22').should.be.fulfilled;
- 
+
       await advanceBlocks(10);
 
       await withdraw('30').should.be.fulfilled;
