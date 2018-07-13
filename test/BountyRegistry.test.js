@@ -149,7 +149,8 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
   });
 
   describe('assertion', function() {
-    it('should allow users to post assertions', async function() {
+    // passes but takes a long time because it has to mine 40k+ blocks
+    xit('should allow users to post assertions', async function() {
       let amount = ether(10);
       let bid = ether(20);
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 1, 10).should.be.fulfilled;
@@ -157,8 +158,8 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let {nonce, receipt} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1).should.be.fulfilled;
       let index = receipt.logs[0].args.index;
-
-      await advanceToBlock(web3.eth.blockNumber + 35);
+      
+      await advanceToBlock(web3.eth.blockNumber + 40330);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, index, nonce, 0x1, "foo").should.be.fulfilled;
 
@@ -206,15 +207,12 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       await advanceToBlock(web3.eth.blockNumber + 10);
 
-      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
+      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0);
-
-      await advanceToBlock(web3.eth.blockNumber + 25);
 
       const voters = await this.bountyregistry.getVoters(guid);
-      voters.length.should.equal(4);
+      voters.length.should.equal(3);
     });
 
     it('should not allow arbiters to settle if before reveal round ends', async function() {
@@ -231,13 +229,8 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceToBlock(web3.eth.blockNumber + 10);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0);
 
       await settleBounty(this.bountyregistry, arbiter0, guid).should.be.rejectedWith(EVMRevert);
-
-      await advanceToBlock(web3.eth.blockNumber + 25);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
@@ -256,10 +249,9 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       await advanceToBlock(web3.eth.blockNumber + 10);
 
-      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
+      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0);
 
       await advanceToBlock(web3.eth.blockNumber + 25);
 
@@ -290,7 +282,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       arbiterBalance.should.be.bignumber.equal(ether(90000000).add(AssertionFee.mul(2)).add(BountyFee));
     });
 
-    it('should allow arbiters to settle multi-artifact bounties', async function() {
+    it('should not allow voting after quorum is reached', async function() {
       let amount = ether(10);
       let bid = ether(20);
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 2, 10);
@@ -302,9 +294,24 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceToBlock(web3.eth.blockNumber + 10);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3);
+
+      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3).should.be.rejectedWith(EVMRevert);
+    });
+
+    it('should allow arbiters to settle multi-artifact bounties', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 2, 10);
+      let guid = tx.logs[0].args.guid;
+
+      let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
+      let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
+
+      await advanceToBlock(web3.eth.blockNumber + 10);
+
+      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x3);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x3);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0);
 
       await advanceToBlock(web3.eth.blockNumber + 25);
 
@@ -333,41 +340,6 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bid + (amount / 2) + (assertionFee * 2) + bountyFee
       arbiterBalance.should.be.bignumber.equal(ether(90000000).add(bid).add(amount.div(2)).add(AssertionFee.mul(2)).add(BountyFee));
-    });
-
-    it('should return funds if less than 2/3 of arbiters agree', async function() {
-      let amount = ether(10);
-      let bid = ether(20);
-      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 1, 10);
-      let guid = tx.logs[0].args.guid;
-
-      let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0);
-      let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1);
-
-      await advanceToBlock(web3.eth.blockNumber + 10);
-
-      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x0);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x0);
-
-      await advanceToBlock(web3.eth.blockNumber + 25);
-
-      await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
-      await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
-
-      await advanceToBlock(web3.eth.blockNumber + 25);
-
-      await settleBounty(this.bountyregistry, expert0, guid);
-      await settleBounty(this.bountyregistry, expert1, guid);
-      await settleBounty(this.bountyregistry, arbiter0, guid);
-
-      let expert0Balance = await this.token.balanceOf(expert0);
-      let expert1Balance = await this.token.balanceOf(expert1);
-
-      // init + (amount / 2) - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(100000000).add(amount.div(2)).sub(AssertionFee));
-      expert1Balance.should.be.bignumber.equal(ether(100000000).add(amount.div(2)).sub(AssertionFee));
     });
 
     it('should only allow owner to modify arbiters', async function() {
@@ -406,9 +378,6 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceToBlock(web3.eth.blockNumber + 10);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
-      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
 
       await advanceToBlock(web3.eth.blockNumber + 25);
 
