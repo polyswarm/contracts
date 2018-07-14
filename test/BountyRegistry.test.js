@@ -193,6 +193,16 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceToBlock(web3.eth.blockNumber + 10);
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1).should.be.rejectedWith(EVMRevert);
     });
+
+    it('should reject assertions on a bounty from the same user', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 1, 10);
+      let guid = tx.logs[0].args.guid;
+      
+      await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1);
+      await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1).should.be.rejectedWith(EVMRevert);
+    });
   });
 
   describe('arbiters', function() {
