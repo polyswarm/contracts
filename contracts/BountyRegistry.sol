@@ -108,6 +108,7 @@ contract BountyRegistry is Pausable {
     mapping (address => bool) public arbiters;
     mapping (uint256 => mapping (uint256 => uint256)) public verdictCountByGuid;
     mapping (uint256 => mapping (address => bool)) public arbiterVoteResgistryByGuid;
+    mapping (uint256 => mapping (address => bool)) public expertAssertionResgistryByGuid;
     mapping (uint128 => mapping (address => bool)) public bountySettled;
 
     /**
@@ -246,9 +247,12 @@ contract BountyRegistry is Pausable {
         require(bid >= ASSERTION_BID_MINIMUM);
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number);
-
+        // Check if the sender has already made an assertion
+        require(expertAssertionResgistryByGuid[bountyGuid][msg.sender] == false);
         // Assess fees and transfer bid amount into escrow
         token.safeTransferFrom(msg.sender, address(this), bid.add(ASSERTION_FEE));
+
+        expertAssertionResgistryByGuid[bountyGuid][msg.sender] = true;
 
         Assertion memory a = Assertion(
             msg.sender,
