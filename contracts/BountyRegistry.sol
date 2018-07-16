@@ -709,6 +709,8 @@ contract BountyRegistry is Pausable {
             uint256 next = 0;
             uint256 value = candidates[0].count;
 
+
+
             for (j = 0; j < count; j++) {
                 if (candidates[j].count > value) {
                     next = j;
@@ -723,4 +725,74 @@ contract BountyRegistry is Pausable {
 
         return ret;
     }
+
+
+    /**
+     * View function displays the most active bounty voters over past
+     * ARBITER_LOOKBACK_RANGE bounties to select future arbiters
+     *
+     * @return sorted array of most active bounty voters
+     */
+
+    function getActiveArbiters() returns (address[], uint256[]) {
+        require(bountyGuids.length > 0);
+        address[] memory recentVoters;
+        uint256 count = 0;
+
+        Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
+
+        uint256 lastBounty = 0;
+        if (bountyGuids.length > ARBITER_LOOKBACK_RANGE) {
+            lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
+        }
+
+        for (uint256 i = bountyGuids.length.sub(1); i > lastBounty; i--) {
+            address[] voters = bountiesByGuid[bountyGuids[i]].voters;
+
+
+            for (uint256 j = 0; j < voters.length; j++) {
+                bool found = false;
+                address addr = voters[j];
+
+                for (uint256 k = 0; k < count; k++) {
+                    if (candidates[k].addr == addr) {
+                        candidates[k].count = candidates[k].count.add(1);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    candidates[count] = Candidate(addr, 1);
+                    count = count.add(1);
+                }
+
+            }
+
+        }
+
+        address[] memory ret_addr = new address[](count);
+        uint256[] memory ret_count = new uint256[](count);
+
+        for (i = 0; i < ret_addr.length; i++) {
+            uint256 next = 0;
+            uint256 value = candidates[0].count;
+
+            for (j = 0; j < count; j++) {
+                if (candidates[j].count > value) {
+                    next = j;
+                    value = candidates[j].count;
+                }
+            }
+
+            ret_addr[i] = candidates[next].addr;
+            ret_count[i] = candidates[next].count;
+            candidates[next] = candidates[count.sub(1)];
+            count = count.sub(1);
+        }
+
+        return (ret_addr, ret_count);
+
+    }
+
 }
