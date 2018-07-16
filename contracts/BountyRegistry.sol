@@ -731,20 +731,25 @@ contract BountyRegistry is Pausable {
      * View function displays the most active bounty voters over past
      * ARBITER_LOOKBACK_RANGE bounties to select future arbiters
      *
-     * @return sorted array of most active bounty voters
+     * @return a sorted array of most active bounty voters and a boolean array of whether 
+     * or not they were active in 90% of bounty votes
      */
 
-    function getActiveArbiters() returns (address[], uint256[]) {
+    function getActiveArbiters() returns (address[], bool[]) {
         require(bountyGuids.length > 0);
         address[] memory recentVoters;
         uint256 count = 0;
+        uint256 threshold = bountyGuids.length;
 
         Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
 
         uint256 lastBounty = 0;
         if (bountyGuids.length > ARBITER_LOOKBACK_RANGE) {
             lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
+            threshold = lastBounty;
         }
+
+        threshold = threshold.div(10).mul(9);
 
         for (uint256 i = bountyGuids.length.sub(1); i > lastBounty; i--) {
             address[] voters = bountiesByGuid[bountyGuids[i]].voters;
@@ -772,7 +777,7 @@ contract BountyRegistry is Pausable {
         }
 
         address[] memory ret_addr = new address[](count);
-        uint256[] memory ret_count = new uint256[](count);
+        bool[] memory ret_arbiter_ativity_threshold = new bool[](count);
 
         for (i = 0; i < ret_addr.length; i++) {
             uint256 next = 0;
@@ -786,12 +791,17 @@ contract BountyRegistry is Pausable {
             }
 
             ret_addr[i] = candidates[next].addr;
-            ret_count[i] = candidates[next].count;
+            if (candidates[next].count.div(10).mul(9) < threshold) {
+                ret_arbiter_ativity_threshold[i] = false;
+            } else {
+                ret_arbiter_ativity_threshold[i] = true;
+            }
+
             candidates[next] = candidates[count.sub(1)];
             count = count.sub(1);
         }
 
-        return (ret_addr, ret_count);
+        return (ret_addr, ret_arbiter_ativity_threshold);
 
     }
 
