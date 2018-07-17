@@ -737,23 +737,21 @@ contract BountyRegistry is Pausable {
 
     function getActiveArbiters() returns (address[], bool[]) {
         require(bountyGuids.length > 0);
-        address[] memory recentVoters;
         uint256 count = 0;
-        uint256 threshold = bountyGuids.length;
+        uint256 threshold = bountyGuids.length.div(10).mul(9);
+        address[] memory ret_addr = new address[](count);
+        bool[] memory ret_arbiter_ativity_threshold = new bool[](count);
 
         Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
 
         uint256 lastBounty = 0;
         if (bountyGuids.length > ARBITER_LOOKBACK_RANGE) {
             lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
-            threshold = lastBounty;
+            threshold = lastBounty.div(10).mul(9);
         }
-
-        threshold = threshold.div(10).mul(9);
 
         for (uint256 i = bountyGuids.length.sub(1); i > lastBounty; i--) {
             address[] voters = bountiesByGuid[bountyGuids[i]].voters;
-
 
             for (uint256 j = 0; j < voters.length; j++) {
                 bool found = false;
@@ -776,8 +774,6 @@ contract BountyRegistry is Pausable {
 
         }
 
-        address[] memory ret_addr = new address[](count);
-        bool[] memory ret_arbiter_ativity_threshold = new bool[](count);
 
         for (i = 0; i < ret_addr.length; i++) {
             uint256 next = 0;
@@ -797,8 +793,8 @@ contract BountyRegistry is Pausable {
                 ret_arbiter_ativity_threshold[i] = true;
             }
 
-            candidates[next] = candidates[count.sub(1)];
             count = count.sub(1);
+            candidates[next] = candidates[count];
         }
 
         return (ret_addr, ret_arbiter_ativity_threshold);
