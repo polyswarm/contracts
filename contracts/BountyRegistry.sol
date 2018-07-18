@@ -279,6 +279,68 @@ contract BountyRegistry is Pausable {
         );
     }
 
+    // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
+    function uint256_to_bytes(uint256 x) internal pure returns (bytes b) {
+        b = new bytes(32);
+        assembly { mstore(add(b, 32), x) }
+    }
+
+    /**
+     * Function called by security experts to reveal an assertion after bounty
+     * expiration
+     *
+     * @param bountyGuid the guid of the bounty to assert on
+     * @param assertionId the id of the assertion to reveal
+     * @param assertionId the id of the assertion to reveal
+     * @param nonce the nonce used to generate the commitment hash
+     * @param verdicts the verdicts making up this assertion
+     * @param metadata optional metadata to include in the assertion
+     */
+    function revealAssertion(
+        uint128 bountyGuid,
+        uint256 assertionId,
+        uint256 nonce,
+        uint256 verdicts,
+        string metadata
+    )
+        external
+        whenNotPaused
+    {
+        // Check if this bounty has been initialized
+        require(bountiesByGuid[bountyGuid].author != address(0));
+        // Check that the bounty is no longer active
+        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
+        // Check if the reveal round has closed
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number);
+        // Zero is defined as an invalid nonce
+        require(nonce != 0);
+
+        // Check our id
+        require(assertionId < assertionsByGuid[bountyGuid].length);
+
+        Assertion storage a = assertionsByGuid[bountyGuid][assertionId];
+        require(a.author == msg.sender);
+        require(a.nonce == 0);
+
+        // Check our commitment hash
+        uint256 hashed_nonce = uint256(keccak256(uint256_to_bytes(nonce)));
+        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce)));
+        require(commitment == a.commitment);
+
+        a.nonce = nonce;
+        a.verdicts = verdicts;
+        a.metadata = metadata;
+
+        emit RevealedAssertion(
+            bountyGuid,
+            a.author,
+            assertionId,
+            a.nonce,
+            a.verdicts,
+            a.metadata
+        );
+    }
+
     /**
      * Function called by arbiter after bounty expiration to settle with their
      * ground truth determination and pay out assertion rewards
@@ -287,7 +349,6 @@ contract BountyRegistry is Pausable {
      * @param verdicts bitset of verdicts representing ground truth for the
      *      bounty's artifacts
      */
-
     function voteOnBounty(
         uint128 bountyGuid,
         uint256 verdicts,
@@ -301,10 +362,10 @@ contract BountyRegistry is Pausable {
 
         // Check if this bounty has been initialized
         require(bounty.author != address(0));
-        // Check that the bounty has closed 
-        require(bounty.expirationBlock <= block.number);
-        // Check if the voting window has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) > block.number);
+        // Check that the reveal round has closed
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) <= block.number);
+        // Check if the voting round has closed
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
         // Check to make sure arbiters can't double vote
         require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
         // Check for quorum
@@ -368,70 +429,9 @@ contract BountyRegistry is Pausable {
             bounty.quorumBlock = block.number - bountiesByGuid[bountyGuid].expirationBlock;
             emit QuorumReached(block.number);
         }
- 
+
+        emit NewVerdict(bountyGuid, verdicts);
      }
-
-    // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
-    function uint256_to_bytes(uint256 x) internal pure returns (bytes b) {
-        b = new bytes(32);
-        assembly { mstore(add(b, 32), x) }
-    }
-
-    /**
-     * Function called by security experts to reveal an assertion after bounty
-     * expiration
-     *
-     * @param bountyGuid the guid of the bounty to assert on
-     * @param assertionId the id of the assertion to reveal
-     * @param assertionId the id of the assertion to reveal
-     * @param nonce the nonce used to generate the commitment hash
-     * @param verdicts the verdicts making up this assertion
-     * @param metadata optional metadata to include in the assertion
-     */
-    function revealAssertion(
-        uint128 bountyGuid,
-        uint256 assertionId,
-        uint256 nonce,
-        uint256 verdicts,
-        string metadata
-    )
-        external
-        whenNotPaused
-    {
-        // Check if this bounty has been initialized
-        require(bountiesByGuid[bountyGuid].author != address(0));
-        // Check that the voting round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ARBITER_VOTE_WINDOW) <= block.number || bountiesByGuid[bountyGuid].quorumReached);
-        // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) > block.number || bountiesByGuid[bountyGuid].quorumReached && bountiesByGuid[bountyGuid].expirationBlock.add(bountiesByGuid[bountyGuid].quorumBlock).add(ASSERTION_REVEAL_WINDOW) > block.number);
-        // Zero is defined as an invalid nonce
-        require(nonce != 0);
-
-        // Check our id
-        require(assertionId < assertionsByGuid[bountyGuid].length);
-
-        Assertion storage a = assertionsByGuid[bountyGuid][assertionId];
-        require(a.author == msg.sender);
-        require(a.nonce == 0);
-
-        // Check our commitment hash
-        uint256 hashed_nonce = uint256(keccak256(uint256_to_bytes(nonce)));
-        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce)));
-        require(commitment == a.commitment);
-
-        a.nonce = nonce;
-        a.verdicts = verdicts;
-        a.metadata = metadata;
-
-        emit RevealedAssertion(
-            bountyGuid,
-            a.author,
-            assertionId,
-            a.nonce,
-            a.verdicts,
-            a.metadata
-        );
-    }
 
     // This struct exists to move state from settleBounty into memory from stack
     // to avoid solidity limitations
@@ -463,7 +463,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number || bounty.quorumReached && bounty.expirationBlock.add(bounty.quorumBlock).add(ASSERTION_REVEAL_WINDOW) <= block.number);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number || bounty.quorumReached);
 
         expertRewards = new uint256[](assertions.length);
 
@@ -562,7 +562,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number  || (bounty.quorumReached && bounty.expirationBlock.add(bounty.quorumBlock).add(ASSERTION_REVEAL_WINDOW) <= block.number));
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) <= block.number || bounty.quorumReached);
 
         if (bounty.assignedArbiter == address(0)) {
             bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
@@ -592,7 +592,7 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-     *  Generates a random number from 0 to range based on the last block hash 
+     *  Generates a random number from 0 to range based on the last block hash
      *
      *  @param seed random number for reprocucing
      * @param range end range for random number
@@ -614,7 +614,7 @@ contract BountyRegistry is Pausable {
         if (bounty.voters.length == 0) {
             return address(0);
         }
-        
+
         uint i;
         uint256 sum;
         int256 randomNum;
@@ -755,7 +755,7 @@ contract BountyRegistry is Pausable {
      * View function displays the most active bounty voters over past
      * ARBITER_LOOKBACK_RANGE bounties to select future arbiters
      *
-     * @return a sorted array of most active bounty voters and a boolean array of whether 
+     * @return a sorted array of most active bounty voters and a boolean array of whether
      * or not they were active in 90% of bounty votes
      */
 
