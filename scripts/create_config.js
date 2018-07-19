@@ -26,6 +26,14 @@ module.exports = async callback => {
     options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
   }
 
+  if (options && options.free) {
+    console.log(options.free);
+    console.log("Making testnet free to use.");
+    config.push('free: Yes');
+  } else {
+    config.push('free: No');
+  }
+
   if (args.home) {
     await deployTo(args.home, 'homechain', options);
   }
