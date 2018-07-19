@@ -93,6 +93,9 @@ contract BountyRegistry is Pausable {
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
     uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
+    uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
+    uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
+
 
     // ~7 days in blocks
     uint256 public constant ARBITER_VOTE_WINDOW = 40320;
@@ -101,7 +104,7 @@ contract BountyRegistry is Pausable {
     // ~4 months in blocks
     uint256 public constant STAKE_DURATION = 701333;
 
-    uint256 arbitersCount;
+    uint256 arbiterCount;
     uint128[] public bountyGuids;
     mapping (uint128 => Bounty) public bountiesByGuid;
     mapping (uint128 => Assertion[]) public assertionsByGuid;
@@ -150,7 +153,7 @@ contract BountyRegistry is Pausable {
     function addArbiter(address newArbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
         require(newArbiter != address(0));
         require(!arbiters[newArbiter]);
-        arbitersCount = arbitersCount.add(1);
+        arbiterCount = arbiterCount.add(1);
         arbiters[newArbiter] = true;
         emit AddedArbiter(newArbiter, blockNumber);
     }
@@ -166,7 +169,7 @@ contract BountyRegistry is Pausable {
      */
     function removeArbiter(address arbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
         arbiters[arbiter] = false;
-        arbitersCount = arbitersCount.sub(1);
+        arbiterCount = arbiterCount.sub(1);
         emit RemovedArbiter(arbiter, blockNumber);
     }
 
@@ -313,15 +316,26 @@ contract BountyRegistry is Pausable {
 
         staking.recordBounty(msg.sender, bountyGuid, block.number);
         arbiterVoteResgistryByGuid[bountyGuid][msg.sender] = true;
+
         uint256 quorumCount = 0;
 
         if (bounty.quorumReached == false) {
             for (uint256 i = 0; i < bounty.numArtifacts; i++) {
-                // check for previous quorum on artifact
+                uint256 malVotes = bounty.quorumVerdicts[i];
                 // removing 1 to exclude the current voter
-                if (bounty.quorumVerdicts[i] > bounty.voters.length.sub(bounty.quorumVerdicts[i]).sub(1)) {
+                uint256 benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]).sub(1);
+                //
+                uint256 maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+                uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+
+                // check for previous quorum on artifact and skip if so
+                if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
                     quorumCount = quorumCount.add(1);
                     bounty.quorumVerdicts[i] = bounty.voters.length;
+                    continue;
+                } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                    quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = 0;
                     continue;
                 }
 
@@ -329,24 +343,32 @@ contract BountyRegistry is Pausable {
                     bounty.quorumVerdicts[i] = bounty.quorumVerdicts[i].add(1);
                 }
 
-                if (bounty.quorumVerdicts[i] > bounty.voters.length.sub(bounty.quorumVerdicts[i])) {
+                // check to see if we have quorum now
+                malVotes = bounty.quorumVerdicts[i];
+                benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]);
+                maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+                maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+
+                if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
                     quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = bounty.voters.length;
+                } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                    quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = 0;
                 }
+
             }
         }
 
+        emit NewVerdict(bountyGuid, verdicts);
+
         // check if all arbiters have voted or if we have quorum for all the artifacts
-        if (bounty.voters.length == arbitersCount || quorumCount == bounty.numArtifacts) {
+        if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
             bounty.quorumReached = true;
             bounty.quorumBlock = block.number - bountiesByGuid[bountyGuid].expirationBlock;
             emit QuorumReached(block.number);
         }
  
-        emit NewVerdict(bountyGuid, verdicts);
-     }
- 
-     function getArbitersCount() public view returns (uint256) {
-        return arbitersCount;
      }
 
     // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
@@ -445,6 +467,8 @@ contract BountyRegistry is Pausable {
 
         expertRewards = new uint256[](assertions.length);
 
+        ArtifactPot memory ap;
+
         uint256 i = 0;
         uint256 j = 0;
 
@@ -459,9 +483,7 @@ contract BountyRegistry is Pausable {
             }
         } else {
             for (i = 0; i < bounty.numArtifacts; i++) {
-                    bool consensus = bounty.quorumVerdicts[i] > bounty.voters.length.sub(bounty.quorumVerdicts[i]);
-
-                    ArtifactPot memory ap;
+                    bool consensus = bounty.quorumVerdicts[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= bounty.voters.length.sub(bounty.quorumVerdicts[i]).mul(BENIGN_VOTE_COEFFICIENT);
 
                     for (j = 0; j < assertions.length; j++) {
                         // If we haven't revealed or didn't assert on this artifact
@@ -503,6 +525,8 @@ contract BountyRegistry is Pausable {
                             }
                         }
                     }
+
+                delete ap;
             }
         }
 
