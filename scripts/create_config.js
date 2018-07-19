@@ -27,8 +27,7 @@ module.exports = async callback => {
   }
 
   if (options && options.free) {
-    console.log(options.free);
-    console.log("Making testnet free to use.");
+    console.log("Setting gasPrice to 0 (Free to use.)");
     config.push('free: Yes');
   } else {
     config.push('free: No');
