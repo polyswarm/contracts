@@ -132,7 +132,10 @@ contract BountyRegistry is Pausable {
      * @return true if addr is a valid arbiter else false
      */
     function isArbiter(address addr) public view returns (bool) {
-        return arbiters[addr] && staking.isEligible(addr);
+        // Remove arbiter requirements for now, while we are whitelisting
+        // arbiters on the platform
+        //return arbiters[addr] && staking.isEligible(addr);
+        return arbiters[addr];
     }
 
     /** Function only callable by arbiter */
