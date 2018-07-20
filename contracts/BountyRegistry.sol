@@ -97,14 +97,8 @@ contract BountyRegistry is Pausable {
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
 
 
-    // ~7 days in blocks
-    uint256 public constant ARBITER_VOTE_WINDOW = 40320;
-
-
-    // ~4 months in blocks
-    uint256 public constant STAKE_DURATION = 701333;
-
-    uint256 arbiterCount;
+    uint256 public arbiterCount;
+    uint256 public arbiterVoteWindow;
     uint128[] public bountyGuids;
     mapping (uint128 => Bounty) public bountiesByGuid;
     mapping (uint128 => Assertion[]) public assertionsByGuid;
@@ -119,10 +113,11 @@ contract BountyRegistry is Pausable {
      *
      * @param _token address of NCT token to use
      */
-    constructor(address _token) Ownable() public {
+    constructor(address _token, uint256 _arbiterVoteWindow, uint256 _stakeDuration) Ownable() public {
         owner = msg.sender;
-        staking = new ArbiterStaking(_token, STAKE_DURATION);
         token = NectarToken(_token);
+        staking = new ArbiterStaking(_token, _stakeDuration);
+        arbiterVoteWindow = _arbiterVoteWindow;
     }
 
     /**
@@ -368,7 +363,7 @@ contract BountyRegistry is Pausable {
         // Check that the reveal round has closed
         require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) <= block.number);
         // Check if the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number);
         // Check to make sure arbiters can't double vote
         require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
         // Check for quorum
@@ -466,7 +461,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number || bounty.quorumReached);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number || bounty.quorumReached);
 
         expertRewards = new uint256[](assertions.length);
 
@@ -579,7 +574,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) <= block.number || bounty.quorumReached);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached);
 
         if (bounty.assignedArbiter == address(0)) {
             bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
@@ -681,7 +676,7 @@ contract BountyRegistry is Pausable {
             return 0;
         } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number) {
             return 1;
-        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number &&
+        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number &&
                   !bounty.quorumReached) {
             return 2;
         } else {
@@ -804,7 +799,7 @@ contract BountyRegistry is Pausable {
      * or not they were active in 90% of bounty votes
      */
 
-    function getActiveArbiters() returns (address[], bool[]) {
+    function getActiveArbiters() external view returns (address[], bool[]) {
         require(bountyGuids.length > 0);
         uint256 count = 0;
         uint256 threshold = bountyGuids.length.div(10).mul(9);
@@ -820,7 +815,7 @@ contract BountyRegistry is Pausable {
         }
 
         for (uint256 i = bountyGuids.length.sub(1); i > lastBounty; i--) {
-            address[] voters = bountiesByGuid[bountyGuids[i]].voters;
+            address[] memory voters = bountiesByGuid[bountyGuids[i]].voters;
 
             for (uint256 j = 0; j < voters.length; j++) {
                 bool found = false;
