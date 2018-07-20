@@ -645,6 +645,34 @@ contract BountyRegistry is Pausable {
     }
 
     /**
+     * Get the current round for a bounty
+     *
+     * @param bountyGuid the guid of the bounty
+     * @return the current round
+     *      0 = assertions being accepted
+     *      1 = assertions being revealed
+     *      2 = arbiters voting
+     *      3 = bounty finished
+     */
+    function getCurrentRound(uint128 bountyGuid) external view returns (uint) {
+        // Check if this bounty has been initialized
+        require(bountiesByGuid[bountyGuid].author != address(0));
+
+        Bounty memory bounty = bountiesByGuid[bountyGuid];
+
+        if (bounty.expirationBlock > block.number) {
+            return 0;
+        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number) {
+            return 1;
+        } else if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number &&
+                  !bounty.quorumReached) {
+            return 2;
+        } else {
+            return 3;
+        }
+    }
+
+    /**
      * Gets the number of assertions for a bounty
      *
      * @param bountyGuid the guid of the bounty

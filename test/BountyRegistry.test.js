@@ -146,6 +146,42 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let amount = ether(100000001);
       await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 1, 10).should.be.rejectedWith(EVMRevert);
     });
+
+    it('should report the proper round for a bounty during its lifecycle', async function() {
+      let amount = ether(10);
+      let bid = ether(20);
+      let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IpfsReadme, 2, 10);
+      let guid = tx.logs[0].args.guid;
+
+      let round = await this.bountyregistry.getCurrentRound(guid);
+      round.should.be.bignumber.equal(0);
+
+      let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
+      let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
+
+      await advanceToBlock(web3.eth.blockNumber + 10);
+
+      round = await this.bountyregistry.getCurrentRound(guid);
+      round.should.be.bignumber.equal(1);
+
+      await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
+      await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
+
+      await advanceToBlock(web3.eth.blockNumber + 25);
+
+      round = await this.bountyregistry.getCurrentRound(guid);
+      round.should.be.bignumber.equal(2);
+
+      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
+      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
+      await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
+      await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
+
+      await advanceToBlock(web3.eth.blockNumber + 25);
+
+      round = await this.bountyregistry.getCurrentRound(guid);
+      round.should.be.bignumber.equal(3);
+    });
   });
 
   describe('assertion', function() {
@@ -393,7 +429,6 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
       arbiterBalance.should.be.bignumber.equal(ether(90000000).add(bid.div(4)).add(AssertionFee.mul(2)).add(BountyFee));
-
     });
 
     it('should reach quorum if all arbiters vote malicous for the second artifact', async function() {
