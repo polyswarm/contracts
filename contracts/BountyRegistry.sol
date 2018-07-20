@@ -474,7 +474,7 @@ contract BountyRegistry is Pausable {
 
         if (assertions.length == 0) {
             // Refund the bounty amount and fees to ambassador
-            bountyRefund = bounty.amount.add(BOUNTY_FEE).mul(bounty.numArtifacts);
+            bountyRefund = bounty.amount.mul(bounty.numArtifacts);
         } else if (bounty.verdicts.length == 0) {
             // Refund bids and distribute the bounty amount evenly to experts
             for (j = 0; j < assertions.length; j++) {
@@ -511,7 +511,7 @@ contract BountyRegistry is Pausable {
 
                     // If nobody asserted on this artifact, refund the ambassador
                     if (ap.numWinners == 0 && ap.numLosers == 0) {
-                        bountyRefund = bountyRefund.add(bounty.amount).add(BOUNTY_FEE);
+                        bountyRefund = bountyRefund.add(bounty.amount);
                         for (j = 0; j < assertions.length; j++) {
                             expertRewards[j] = expertRewards[j].add(assertions[j].bid);
                         }
