@@ -486,12 +486,20 @@ contract BountyRegistry is Pausable {
                     bool consensus = bounty.quorumVerdicts[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= bounty.voters.length.sub(bounty.quorumVerdicts[i]).mul(BENIGN_VOTE_COEFFICIENT);
 
                     for (j = 0; j < assertions.length; j++) {
-                        // If we haven't revealed or didn't assert on this artifact
-                        if (assertions[j].nonce == 0 || assertions[j].mask & (1 << i) == 0) {
+                        bool malicious;
+
+                        // If we didn't assert on this artifact
+                        if (assertions[j].mask & (1 << i) == 0) {
                             continue;
                         }
 
-                        bool malicious = (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
+                        // If we haven't revealed set to incorrect value
+                        if (assertions[j].nonce == 0) {
+                            malicious = !consensus;
+                        } else {
+                            malicious = (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
+                        }
+
                         if (malicious == consensus) {
                             ap.numWinners = ap.numWinners.add(1);
                             ap.winnerPool = ap.winnerPool.add(assertions[j].bid);
@@ -511,12 +519,18 @@ contract BountyRegistry is Pausable {
                         for (j = 0; j < assertions.length; j++) {
                             expertRewards[j] = expertRewards[j].add(assertions[j].bid);
 
-                            // If we haven't revealed or didn't assert on this artifact
-                            if (assertions[j].nonce == 0 || assertions[j].mask & (1 << i) == 0) {
+                            // If we didn't assert on this artifact
+                            if (assertions[j].mask & (1 << i) == 0) {
                                 continue;
                             }
 
-                            malicious = (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
+                            // If we haven't revealed set to incorrect value
+                            if (assertions[j].nonce == 0) {
+                                malicious = !consensus;
+                            } else {
+                                malicious = (assertions[j].verdicts & assertions[j].mask) & (1 << i) != 0;
+                            }
+
                             if (malicious == consensus) {
                                 expertRewards[j] = expertRewards[j].add(assertions[j].bid.mul(ap.loserPool).div(ap.winnerPool));
                                 expertRewards[j] = expertRewards[j].add(bounty.amount.mul(ap.loserPool).div(ap.winnerPool));
