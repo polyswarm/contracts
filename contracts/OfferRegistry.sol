@@ -1,9 +1,10 @@
 pragma solidity ^0.4.23;
+import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "./OfferMultiSig.sol";
 import "./OfferLib.sol";
 
 /// @title Creates new Offer Channel contracts and keeps track of them 
-contract OfferRegistry {
+contract OfferRegistry is Pausable {
 
     struct OfferChannel {
         address msig;
@@ -41,7 +42,7 @@ contract OfferRegistry {
      * @param _settlementPeriodLength how long the parties have to dispute the settlement offer channel
      */
 
-    function initializeOfferChannel(uint128 guid, address _ambassador, address _expert, uint _settlementPeriodLength) external {
+    function initializeOfferChannel(uint128 guid, address _ambassador, address _expert, uint _settlementPeriodLength) external whenNotPaused {
 
         require(address(0) != _expert);
         require(address(0) != _ambassador);
@@ -110,6 +111,37 @@ contract OfferRegistry {
         return registeredChannelsGuids;
     }
 
+    /**
+     * Pause all channels
+     *
+     * @return list of every channel registered
+     */
+
+    function pauseChannels() external onlyOwner whenPaused {
+        require(channelsGuids.length != 0);
+
+        for (uint i = 0; i < channelsGuids.length; i++) {
+            OfferMultiSig(guidToChannel[channelsGuids[i]].msig).pause();
+        }
+
+    }
+
+    /**
+     * Unpause all channels
+     *
+     * @return list of every channel registered
+     */
+
+    function unpauseChannels() external onlyOwner whenPaused {
+        require(channelsGuids.length != 0);
+
+        for (uint i = 0; i < channelsGuids.length; i++) {
+            OfferMultiSig(guidToChannel[channelsGuids[i]].msig).unpause();
+        }
+
+    }
+
+
     // Internals
 
     /**
@@ -124,7 +156,7 @@ contract OfferRegistry {
         string memory str_ambassador = toString(_ambassador);
         string memory str_expert = toString(_expert);
 
-        return keccak256(strConcat(str_ambassador, str_expert));
+        return keccak256(abi.encodePacked(strConcat(str_ambassador, str_expert)));
     }
 
     function toString(address x) internal pure returns (string) {

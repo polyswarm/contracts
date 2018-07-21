@@ -1,6 +1,7 @@
 pragma solidity ^0.4.23;
+import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
-contract OfferMultiSig {
+contract OfferMultiSig is Pausable {
 
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
@@ -86,7 +87,7 @@ contract OfferMultiSig {
      * @param _s output of ECDSA signature of state
      */
 
-    function openAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public {
+    function openAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public whenNotPaused {
         // require the channel is not open yet
         require(isOpen == false, 'openAgreement already called, isOpen true');
         require(isPending == false, 'openAgreement already called, isPending true');
@@ -117,7 +118,7 @@ contract OfferMultiSig {
      * Function called by ambassador to cancel a channel that hasn't been joined yet
      */
 
-    function cancelAgreement() public {
+    function cancelAgreement() public whenNotPaused {
         // require the channel is not open yet
         require(isPending == true, 'only a channel in a pending state can be canceled');
         require(msg.sender == ambassador, 'only an ambassador can cancel an agreement');
@@ -139,7 +140,7 @@ contract OfferMultiSig {
      * @param _s output of ECDSA signature of state
      */
 
-    function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public {
+    function joinAgreement(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) public whenNotPaused {
         require(isOpen == false);
         require(msg.sender == expert);
         require(isPending);
@@ -174,7 +175,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
+    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
         require(isOpen == true, 'Tried adding state to a close msig wallet');
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
@@ -200,7 +201,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
+    function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress);
@@ -229,7 +230,7 @@ contract OfferMultiSig {
      * @dev index 1 is the expert signature
      */
 
-    function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
+    function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress);
@@ -262,7 +263,7 @@ contract OfferMultiSig {
      * @param _sigS output of ECDSA signature of state by both parties
      */
 
-    function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
+    function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress);
@@ -293,7 +294,7 @@ contract OfferMultiSig {
      * @param _sigS output of ECDSA signature of state by both parties
      */
 
-    function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants {
+    function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress);
@@ -361,7 +362,7 @@ contract OfferMultiSig {
      * @param _state final offer state agreed on by both parties with close flag
      */
 
-    function _finalize(bytes _state) internal {
+    function _finalize(bytes _state) internal whenNotPaused {
         uint _length = _state.length;
         
         require(address(offerLib).delegatecall(bytes4(keccak256("finalize(bytes)")), bytes32(32), bytes32(_length), _state));
