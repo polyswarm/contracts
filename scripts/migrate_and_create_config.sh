@@ -1,6 +1,6 @@
 #! /bin/bash
 
-MIN_GAS=5500000
+MIN_GAS=6500000
 
 get_all_unlocked() {
   curl -s -X POST -H "Content-Type: application/json" --data '{"jsonrpc":"2.0","method":"personal_listWallets","params":[],"id":1}' ${HOME_CHAIN} | grep -vq Locked

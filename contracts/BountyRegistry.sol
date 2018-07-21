@@ -19,10 +19,13 @@ contract BountyRegistry is Pausable {
         uint256 numArtifacts;
         uint256 expirationBlock;
         address assignedArbiter;
+        bool quorumReached;
+        uint256 quorumBlock;
         uint256[8] bloom;
         address[] voters;
         uint256[] verdicts;
         bool[] bloomVotes;
+        mapping (uint256 => uint256) quorumVerdicts;
     }
 
     struct Assertion {
@@ -76,6 +79,10 @@ contract BountyRegistry is Pausable {
         uint256 verdicts
     );
 
+    event QuorumReached(
+        uint256 block
+    );
+
     ArbiterStaking public staking;
     NectarToken internal token;
 
@@ -85,18 +92,26 @@ contract BountyRegistry is Pausable {
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
-    uint256 public constant ARBITER_VOTE_WINDOW = 25; // BLOCKS
     uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
+    uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
+    uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
+
+
+    // ~7 days in blocks
+    uint256 public constant ARBITER_VOTE_WINDOW = 40320;
+
 
     // ~4 months in blocks
     uint256 public constant STAKE_DURATION = 701333;
 
+    uint256 arbiterCount;
     uint128[] public bountyGuids;
     mapping (uint128 => Bounty) public bountiesByGuid;
     mapping (uint128 => Assertion[]) public assertionsByGuid;
     mapping (address => bool) public arbiters;
     mapping (uint256 => mapping (uint256 => uint256)) public verdictCountByGuid;
     mapping (uint256 => mapping (address => bool)) public arbiterVoteResgistryByGuid;
+    mapping (uint256 => mapping (address => bool)) public expertAssertionResgistryByGuid;
     mapping (uint128 => mapping (address => bool)) public bountySettled;
 
     /**
@@ -138,7 +153,7 @@ contract BountyRegistry is Pausable {
     function addArbiter(address newArbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
         require(newArbiter != address(0));
         require(!arbiters[newArbiter]);
-
+        arbiterCount = arbiterCount.add(1);
         arbiters[newArbiter] = true;
         emit AddedArbiter(newArbiter, blockNumber);
     }
@@ -154,6 +169,7 @@ contract BountyRegistry is Pausable {
      */
     function removeArbiter(address arbiter, uint256 blockNumber) external whenNotPaused onlyOwner {
         arbiters[arbiter] = false;
+        arbiterCount = arbiterCount.sub(1);
         emit RemovedArbiter(arbiter, blockNumber);
     }
 
@@ -234,9 +250,12 @@ contract BountyRegistry is Pausable {
         require(bid >= ASSERTION_BID_MINIMUM);
         // Check if this bounty is active
         require(bountiesByGuid[bountyGuid].expirationBlock > block.number);
-
+        // Check if the sender has already made an assertion
+        require(expertAssertionResgistryByGuid[bountyGuid][msg.sender] == false);
         // Assess fees and transfer bid amount into escrow
         token.safeTransferFrom(msg.sender, address(this), bid.add(ASSERTION_FEE));
+
+        expertAssertionResgistryByGuid[bountyGuid][msg.sender] = true;
 
         Assertion memory a = Assertion(
             msg.sender,
@@ -260,44 +279,6 @@ contract BountyRegistry is Pausable {
         );
     }
 
-    /**
-     * Function called by arbiter after bounty expiration to settle with their
-     * ground truth determination and pay out assertion rewards
-     *
-     * @param bountyGuid the guid of the bounty to settle
-     * @param verdicts bitset of verdicts representing ground truth for the
-     *      bounty's artifacts
-     */
-
-    function voteOnBounty(
-        uint128 bountyGuid,
-        uint256 verdicts,
-        bool validBloom
-    )
-        external
-        onlyArbiter
-        whenNotPaused
-    {
-        Bounty storage bounty = bountiesByGuid[bountyGuid];
-
-        // Check if this bounty has been initialized
-        require(bounty.author != address(0));
-        // Check that the bounty has closed 
-        require(bounty.expirationBlock <= block.number);
-        // Check if the voting window has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW) > block.number);
-        // Check to make sure arbiters can't double vote
-        require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
-
-        bounty.verdicts.push(verdicts);
-        bounty.voters.push(msg.sender);
-        bounty.bloomVotes.push(validBloom);
-
-        staking.recordBounty(msg.sender, bountyGuid, block.number);
-        arbiterVoteResgistryByGuid[bountyGuid][msg.sender] = true;
-        emit NewVerdict(bountyGuid, verdicts);
-    }
-
     // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
     function uint256_to_bytes(uint256 x) internal pure returns (bytes b) {
         b = new bytes(32);
@@ -309,6 +290,7 @@ contract BountyRegistry is Pausable {
      * expiration
      *
      * @param bountyGuid the guid of the bounty to assert on
+     * @param assertionId the id of the assertion to reveal
      * @param assertionId the id of the assertion to reveal
      * @param nonce the nonce used to generate the commitment hash
      * @param verdicts the verdicts making up this assertion
@@ -326,10 +308,10 @@ contract BountyRegistry is Pausable {
     {
         // Check if this bounty has been initialized
         require(bountiesByGuid[bountyGuid].author != address(0));
-        // Check that the voting round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ARBITER_VOTE_WINDOW) <= block.number);
+        // Check that the bounty is no longer active
+        require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
         // Check if the reveal round has closed
-        require(bountiesByGuid[bountyGuid].expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) > block.number);
+        require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number);
         // Zero is defined as an invalid nonce
         require(nonce != 0);
 
@@ -359,6 +341,98 @@ contract BountyRegistry is Pausable {
         );
     }
 
+    /**
+     * Function called by arbiter after bounty expiration to settle with their
+     * ground truth determination and pay out assertion rewards
+     *
+     * @param bountyGuid the guid of the bounty to settle
+     * @param verdicts bitset of verdicts representing ground truth for the
+     *      bounty's artifacts
+     */
+    function voteOnBounty(
+        uint128 bountyGuid,
+        uint256 verdicts,
+        bool validBloom
+    )
+        external
+        onlyArbiter
+        whenNotPaused
+    {
+        Bounty storage bounty = bountiesByGuid[bountyGuid];
+
+        // Check if this bounty has been initialized
+        require(bounty.author != address(0));
+        // Check that the reveal round has closed
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW) <= block.number);
+        // Check if the voting round has closed
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number);
+        // Check to make sure arbiters can't double vote
+        require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
+        // Check for quorum
+        require(bounty.quorumReached == false);
+
+        bounty.verdicts.push(verdicts);
+        bounty.voters.push(msg.sender);
+        bounty.bloomVotes.push(validBloom);
+
+        staking.recordBounty(msg.sender, bountyGuid, block.number);
+        arbiterVoteResgistryByGuid[bountyGuid][msg.sender] = true;
+
+        uint256 quorumCount = 0;
+
+        if (bounty.quorumReached == false) {
+            for (uint256 i = 0; i < bounty.numArtifacts; i++) {
+                uint256 malVotes = bounty.quorumVerdicts[i];
+                // removing 1 to exclude the current voter
+                uint256 benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]).sub(1);
+                //
+                uint256 maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+                uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+
+                // check for previous quorum on artifact and skip if so
+                if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
+                    quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = bounty.voters.length;
+                    continue;
+                } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                    quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = 0;
+                    continue;
+                }
+
+                if (verdicts & (1 << i) != 0) {
+                    bounty.quorumVerdicts[i] = bounty.quorumVerdicts[i].add(1);
+                }
+
+                // check to see if we have quorum now
+                malVotes = bounty.quorumVerdicts[i];
+                benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]);
+                maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+                maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+
+                if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
+                    quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = bounty.voters.length;
+                } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                    quorumCount = quorumCount.add(1);
+                    bounty.quorumVerdicts[i] = 0;
+                }
+
+            }
+        }
+
+        emit NewVerdict(bountyGuid, verdicts);
+
+        // check if all arbiters have voted or if we have quorum for all the artifacts
+        if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
+            bounty.quorumReached = true;
+            bounty.quorumBlock = block.number - bountiesByGuid[bountyGuid].expirationBlock;
+            emit QuorumReached(block.number);
+        }
+
+        emit NewVerdict(bountyGuid, verdicts);
+     }
+
     // This struct exists to move state from settleBounty into memory from stack
     // to avoid solidity limitations
     struct ArtifactPot {
@@ -381,7 +455,7 @@ contract BountyRegistry is Pausable {
         view
         returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] expertRewards)
     {
-        Bounty memory bounty = bountiesByGuid[bountyGuid];
+        Bounty storage bounty = bountiesByGuid[bountyGuid];
         Assertion[] memory assertions = assertionsByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
@@ -389,9 +463,11 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) > block.number || bounty.quorumReached);
 
         expertRewards = new uint256[](assertions.length);
+
+        ArtifactPot memory ap;
 
         uint256 i = 0;
         uint256 j = 0;
@@ -407,27 +483,7 @@ contract BountyRegistry is Pausable {
             }
         } else {
             for (i = 0; i < bounty.numArtifacts; i++) {
-                uint256 vote = 0;
-                for (j = 0; j < bounty.verdicts.length; j++) {
-                    if (bounty.verdicts[j] & (1 << i) != 0) {
-                        vote = vote.add(1);
-                    }
-                }
-
-                // Three cases: 0: 0 <= T < 1/3, 1: 1/3 <= T < 2/3, 2: 2/3 <= T <= 1
-                vote = vote.mul(3).div(bounty.verdicts.length);
-
-                if (vote == 1) {
-                    // failed to reach supermajority, refund expert bids and split
-                    // bounty
-                    for (j = 0; j < assertions.length; j++) {
-                        expertRewards[j] = expertRewards[j].add(assertions[j].bid);
-                        expertRewards[j] = expertRewards[j].add(bounty.amount.div(assertions.length));
-                    }
-                } else {
-                    // Otherwise, arbiters agree
-                    ArtifactPot memory ap;
-                    bool consensus = vote != 0;
+                    bool consensus = bounty.quorumVerdicts[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= bounty.voters.length.sub(bounty.quorumVerdicts[i]).mul(BENIGN_VOTE_COEFFICIENT);
 
                     for (j = 0; j < assertions.length; j++) {
                         // If we haven't revealed or didn't assert on this artifact
@@ -469,7 +525,8 @@ contract BountyRegistry is Pausable {
                             }
                         }
                     }
-                }
+
+                delete ap;
             }
         }
 
@@ -505,7 +562,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ARBITER_VOTE_WINDOW).add(ASSERTION_REVEAL_WINDOW) <= block.number);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(ARBITER_VOTE_WINDOW) <= block.number || bounty.quorumReached);
 
         if (bounty.assignedArbiter == address(0)) {
             bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
@@ -535,7 +592,7 @@ contract BountyRegistry is Pausable {
     }
 
     /**
-     *  Generates a random number from 0 to range based on the last block hash 
+     *  Generates a random number from 0 to range based on the last block hash
      *
      *  @param seed random number for reprocucing
      * @param range end range for random number
@@ -557,7 +614,7 @@ contract BountyRegistry is Pausable {
         if (bounty.voters.length == 0) {
             return address(0);
         }
-        
+
         uint i;
         uint256 sum;
         int256 randomNum;
@@ -676,6 +733,8 @@ contract BountyRegistry is Pausable {
             uint256 next = 0;
             uint256 value = candidates[0].count;
 
+
+
             for (j = 0; j < count; j++) {
                 if (candidates[j].count > value) {
                     next = j;
@@ -690,4 +749,80 @@ contract BountyRegistry is Pausable {
 
         return ret;
     }
+
+
+    /**
+     * View function displays the most active bounty voters over past
+     * ARBITER_LOOKBACK_RANGE bounties to select future arbiters
+     *
+     * @return a sorted array of most active bounty voters and a boolean array of whether
+     * or not they were active in 90% of bounty votes
+     */
+
+    function getActiveArbiters() returns (address[], bool[]) {
+        require(bountyGuids.length > 0);
+        uint256 count = 0;
+        uint256 threshold = bountyGuids.length.div(10).mul(9);
+        address[] memory ret_addr = new address[](count);
+        bool[] memory ret_arbiter_ativity_threshold = new bool[](count);
+
+        Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
+
+        uint256 lastBounty = 0;
+        if (bountyGuids.length > ARBITER_LOOKBACK_RANGE) {
+            lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
+            threshold = lastBounty.div(10).mul(9);
+        }
+
+        for (uint256 i = bountyGuids.length.sub(1); i > lastBounty; i--) {
+            address[] voters = bountiesByGuid[bountyGuids[i]].voters;
+
+            for (uint256 j = 0; j < voters.length; j++) {
+                bool found = false;
+                address addr = voters[j];
+
+                for (uint256 k = 0; k < count; k++) {
+                    if (candidates[k].addr == addr) {
+                        candidates[k].count = candidates[k].count.add(1);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
+                    candidates[count] = Candidate(addr, 1);
+                    count = count.add(1);
+                }
+
+            }
+
+        }
+
+
+        for (i = 0; i < ret_addr.length; i++) {
+            uint256 next = 0;
+            uint256 value = candidates[0].count;
+
+            for (j = 0; j < count; j++) {
+                if (candidates[j].count > value) {
+                    next = j;
+                    value = candidates[j].count;
+                }
+            }
+
+            ret_addr[i] = candidates[next].addr;
+            if (candidates[next].count.div(10).mul(9) < threshold) {
+                ret_arbiter_ativity_threshold[i] = false;
+            } else {
+                ret_arbiter_ativity_threshold[i] = true;
+            }
+
+            count = count.sub(1);
+            candidates[next] = candidates[count];
+        }
+
+        return (ret_addr, ret_arbiter_ativity_threshold);
+
+    }
+
 }
