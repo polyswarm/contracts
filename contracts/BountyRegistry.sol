@@ -461,7 +461,7 @@ contract BountyRegistry is Pausable {
         // Check if this bounty has been previously resolved for the sender
         require(!bountySettled[bountyGuid][msg.sender]);
         // Check that the voting round has closed
-        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number || bounty.quorumReached);
+        require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached);
 
         expertRewards = new uint256[](assertions.length);
 
