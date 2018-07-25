@@ -11,6 +11,8 @@ contract BountyRegistry is Pausable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
+    string public constant VERSION = "0.3.1";
+
     struct Bounty {
         uint128 guid;
         address author;
@@ -26,6 +28,7 @@ contract BountyRegistry is Pausable {
         uint256[] verdicts;
         bool[] bloomVotes;
         mapping (uint256 => uint256) quorumVerdicts;
+        uint256 quorumMask;
     }
 
     struct Assertion {
@@ -388,24 +391,13 @@ contract BountyRegistry is Pausable {
 
         staking.recordBounty(msg.sender, bountyGuid, block.number);
         arbiterVoteRegistryByGuid[bountyGuid][msg.sender] = true;
-
+        uint256 tempQuorumMask = 0;
         uint256 quorumCount = 0;
-        for (uint256 i = 0; i < bounty.numArtifacts; i++) {
-            uint256 malVotes = bounty.quorumVerdicts[i];
-            // removing 1 to exclude the current voter
-            uint256 benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]).sub(1);
-            //
-            uint256 maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
-            uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
 
-            // check for previous quorum on artifact and skip if so
-            if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
-                quorumCount = quorumCount.add(1);
-                bounty.quorumVerdicts[i] = bounty.voters.length;
-                continue;
-            } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
-                quorumCount = quorumCount.add(1);
-                bounty.quorumVerdicts[i] = 0;
+        for (uint256 i = 0; i < bounty.numArtifacts; i++) {
+
+            if (bounty.quorumMask != 0 && (bounty.quorumMask & (1 << i) != 0)) {
+                tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
                 continue;
             }
 
@@ -413,21 +405,21 @@ contract BountyRegistry is Pausable {
                 bounty.quorumVerdicts[i] = bounty.quorumVerdicts[i].add(1);
             }
 
-            // check to see if we have quorum now
-            malVotes = bounty.quorumVerdicts[i];
-            benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]);
-            maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
-            maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+            uint256 malVotes = bounty.quorumVerdicts[i];
+            uint256 benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]);
+            uint256 maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+            uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
 
             if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
                 quorumCount = quorumCount.add(1);
-                bounty.quorumVerdicts[i] = bounty.voters.length;
             } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
                 quorumCount = quorumCount.add(1);
-                bounty.quorumVerdicts[i] = 0;
             }
 
         }
+
+        // set new mask
+        bounty.quorumMask = tempQuorumMask;
 
         // check if all arbiters have voted or if we have quorum for all the artifacts
         if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
@@ -801,6 +793,13 @@ contract BountyRegistry is Pausable {
         return ret;
     }
 
+    function calculateMask(uint256 i, uint256 b) public pure returns(uint256) {
+        if (b != 0) {
+            return 1 << i;
+        }
+
+        return 0;
+    }
 
     /**
      * View function displays the most active bounty voters over past
