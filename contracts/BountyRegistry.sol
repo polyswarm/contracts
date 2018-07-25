@@ -97,6 +97,7 @@ contract BountyRegistry is Pausable {
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
+    uint256 public constant MAX_DURATION = 100; // BLOCKS
     uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
     uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
@@ -109,7 +110,7 @@ contract BountyRegistry is Pausable {
     mapping (uint128 => Assertion[]) public assertionsByGuid;
     mapping (address => bool) public arbiters;
     mapping (uint256 => mapping (uint256 => uint256)) public verdictCountByGuid;
-    mapping (uint256 => mapping (address => bool)) public arbiterVoteResgistryByGuid;
+    mapping (uint256 => mapping (address => bool)) public arbiterVoteRegistryByGuid;
     mapping (uint256 => mapping (address => bool)) public expertAssertionResgistryByGuid;
     mapping (uint128 => mapping (address => bool)) public bountySettled;
 
@@ -203,8 +204,8 @@ contract BountyRegistry is Pausable {
         require(bytes(artifactURI).length > 0);
         // Check that our number of artifacts is valid
         require(numArtifacts <= 256);
-        // Check that our duration is non-zero
-        require(durationBlocks > 0);
+        // Check that our duration is non-zero and less than or equal to the max
+        require(durationBlocks > 0 && durationBlocks <= MAX_DURATION);
 
         // Assess fees and transfer bounty amount into escrow
         token.safeTransferFrom(msg.sender, address(this), amount.add(BOUNTY_FEE));
@@ -213,7 +214,12 @@ contract BountyRegistry is Pausable {
         bountiesByGuid[guid].author = msg.sender;
         bountiesByGuid[guid].amount = amount;
         bountiesByGuid[guid].artifactURI = artifactURI;
-        // FIXME
+
+        // Number of artifacts is submitted as part of the bounty, we have no
+        // way to check how many exist in this IPFS resource. For an IPFS
+        // resource with N artifacts, if numArtifacts < N only the first
+        // numArtifacts artifacts are included in this bounty, if numArtifacts >
+        // N then the last N - numArtifacts bounties are considered benign.
         bountiesByGuid[guid].numArtifacts = numArtifacts;
         bountiesByGuid[guid].expirationBlock = durationBlocks.add(block.number);
         bountiesByGuid[guid].bloom = bloom;
@@ -372,7 +378,7 @@ contract BountyRegistry is Pausable {
         // Check if the voting round has closed
         require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number);
         // Check to make sure arbiters can't double vote
-        require(arbiterVoteResgistryByGuid[bountyGuid][msg.sender] == false);
+        require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false);
         // Check for quorum
         require(bounty.quorumReached == false);
 
@@ -381,49 +387,46 @@ contract BountyRegistry is Pausable {
         bounty.bloomVotes.push(validBloom);
 
         staking.recordBounty(msg.sender, bountyGuid, block.number);
-        arbiterVoteResgistryByGuid[bountyGuid][msg.sender] = true;
+        arbiterVoteRegistryByGuid[bountyGuid][msg.sender] = true;
 
         uint256 quorumCount = 0;
+        for (uint256 i = 0; i < bounty.numArtifacts; i++) {
+            uint256 malVotes = bounty.quorumVerdicts[i];
+            // removing 1 to exclude the current voter
+            uint256 benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]).sub(1);
+            //
+            uint256 maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+            uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
 
-        if (bounty.quorumReached == false) {
-            for (uint256 i = 0; i < bounty.numArtifacts; i++) {
-                uint256 malVotes = bounty.quorumVerdicts[i];
-                // removing 1 to exclude the current voter
-                uint256 benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]).sub(1);
-                //
-                uint256 maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
-                uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
-
-                // check for previous quorum on artifact and skip if so
-                if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
-                    quorumCount = quorumCount.add(1);
-                    bounty.quorumVerdicts[i] = bounty.voters.length;
-                    continue;
-                } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
-                    quorumCount = quorumCount.add(1);
-                    bounty.quorumVerdicts[i] = 0;
-                    continue;
-                }
-
-                if (verdicts & (1 << i) != 0) {
-                    bounty.quorumVerdicts[i] = bounty.quorumVerdicts[i].add(1);
-                }
-
-                // check to see if we have quorum now
-                malVotes = bounty.quorumVerdicts[i];
-                benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]);
-                maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
-                maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
-
-                if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
-                    quorumCount = quorumCount.add(1);
-                    bounty.quorumVerdicts[i] = bounty.voters.length;
-                } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
-                    quorumCount = quorumCount.add(1);
-                    bounty.quorumVerdicts[i] = 0;
-                }
-
+            // check for previous quorum on artifact and skip if so
+            if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
+                quorumCount = quorumCount.add(1);
+                bounty.quorumVerdicts[i] = bounty.voters.length;
+                continue;
+            } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                quorumCount = quorumCount.add(1);
+                bounty.quorumVerdicts[i] = 0;
+                continue;
             }
+
+            if (verdicts & (1 << i) != 0) {
+                bounty.quorumVerdicts[i] = bounty.quorumVerdicts[i].add(1);
+            }
+
+            // check to see if we have quorum now
+            malVotes = bounty.quorumVerdicts[i];
+            benignVotes = bounty.voters.length.sub(bounty.quorumVerdicts[i]);
+            maxBenignValue = arbiterCount.sub(malVotes).mul(BENIGN_VOTE_COEFFICIENT);
+            maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
+
+            if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
+                quorumCount = quorumCount.add(1);
+                bounty.quorumVerdicts[i] = bounty.voters.length;
+            } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                quorumCount = quorumCount.add(1);
+                bounty.quorumVerdicts[i] = 0;
+            }
+
         }
 
         // check if all arbiters have voted or if we have quorum for all the artifacts

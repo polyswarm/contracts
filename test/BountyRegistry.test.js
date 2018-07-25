@@ -20,6 +20,7 @@ const BOUNTY_FEE = ether(0.0625);
 const ASSERTION_FEE = ether(0.0625);
 const BOUNTY_MIN = ether(0.0625);
 const ASSERTION_MIN = ether(0.0625);
+const MAX_DURATION = 100;
 const ASSERTION_REVEAL_WINDOW = 25;
 const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
@@ -144,6 +145,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     it('should reject bounties with zero duration', async function() {
       let amount = ether(10);
       await postBounty(this.token, this.bountyregistry, user0, amount, IPFS_README, 1, 0).should.be.rejectedWith(EVMRevert);
+    });
+
+    it('should reject bounties with too long of a duration', async function() {
+      let amount = ether(10);
+      await postBounty(this.token, this.bountyregistry, user0, amount, IPFS_README, 1, MAX_DURATION + 1).should.be.rejectedWith(EVMRevert);
     });
 
     it('should reject bounties the user can\'t cover', async function() {
