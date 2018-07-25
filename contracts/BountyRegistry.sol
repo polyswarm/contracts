@@ -325,9 +325,11 @@ contract BountyRegistry is Pausable {
         require(a.author == msg.sender);
         require(a.nonce == 0);
 
-        // Check our commitment hash
+        // Check our commitment hash, by xor-ing verdicts with the hashed nonce
+        // and the sender's address prevent copying assertions by submitting the
+        // same commitment hash and nonce during the reveal round
         uint256 hashed_nonce = uint256(keccak256(uint256_to_bytes(nonce)));
-        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce)));
+        uint256 commitment = uint256(keccak256(uint256_to_bytes(verdicts ^ hashed_nonce ^ uint256(msg.sender))));
         require(commitment == a.commitment);
 
         a.nonce = nonce;
