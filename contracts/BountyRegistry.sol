@@ -424,8 +424,6 @@ contract BountyRegistry is Pausable {
             }
         }
 
-        emit NewVerdict(bountyGuid, verdicts);
-
         // check if all arbiters have voted or if we have quorum for all the artifacts
         if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
             bounty.quorumReached = true;
