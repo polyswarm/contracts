@@ -83,6 +83,11 @@ contract BountyRegistry is Pausable {
         uint256 block
     );
 
+    event BountySettled(
+        uint256 block,
+        address settler
+    );
+
     ArbiterStaking public staking;
     NectarToken internal token;
 
@@ -419,8 +424,6 @@ contract BountyRegistry is Pausable {
             }
         }
 
-        emit NewVerdict(bountyGuid, verdicts);
-
         // check if all arbiters have voted or if we have quorum for all the artifacts
         if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
             bounty.quorumReached = true;
@@ -601,13 +604,16 @@ contract BountyRegistry is Pausable {
         if (arbiterReward != 0 && bounty.assignedArbiter == msg.sender) {
             token.safeTransfer(bounty.assignedArbiter, arbiterReward);
         }
+
+        emit BountySettled(block.number, msg.sender);
+
     }
 
     /**
      *  Generates a random number from 0 to range based on the last block hash
      *
      *  @param seed random number for reprocucing
-     * @param range end range for random number
+     *  @param range end range for random number
      */
     function randomGen(uint seed, uint256 range) constant private returns (int256 randomNumber) {
         return int256(uint256(keccak256(abi.encodePacked(blockhash(block.number-1), seed))) % range);
