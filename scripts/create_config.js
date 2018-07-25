@@ -6,7 +6,8 @@ const NectarToken = artifacts.require('NectarToken');
 const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
-
+const ARBITER_VOTE_WINDOW = 100;
+const STAKE_DURATION = 100;
 const fs = require('fs');
 
 module.exports = async callback => {
@@ -62,7 +63,7 @@ module.exports = async callback => {
 
     const nectarToken = await NectarToken.new();
     const offerRegistry = await OfferRegistry.new(nectarToken.address);
-    const bountyRegistry = await BountyRegistry.new(nectarToken.address);
+    const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION);
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();
 
