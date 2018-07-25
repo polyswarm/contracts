@@ -37,8 +37,9 @@ async function postBounty(token, bountyregistry, from, amount, url, numArtifacts
 async function postAssertion(token, bountyregistry, from, bountyGuid, bid, mask, verdicts) {
   let nonce = new BN(utils.bufferToHex(utils.sha3(utils.toBuffer(Math.random() * (1 << 30)))).substring(2, 67), 16);
   verdicts = new BN(verdicts);
+  let from_num = new BN(from.substring(2), 16);
   let hashed_nonce = new BN(utils.bufferToHex(utils.sha3(utils.toBuffer(nonce))).substring(2, 67), 16);
-  let commitment = utils.bufferToHex(utils.sha3(utils.toBuffer(verdicts.xor(hashed_nonce))));
+  let commitment = utils.bufferToHex(utils.sha3(utils.toBuffer(verdicts.xor(hashed_nonce).xor(from_num))));
 
   await token.approve(bountyregistry.address, bid.add(ASSERTION_FEE), { from });
   return {nonce: '0x' + nonce.toString(16), receipt: await bountyregistry.postAssertion(bountyGuid, bid, mask, commitment, { from })};
