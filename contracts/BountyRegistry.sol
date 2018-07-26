@@ -79,7 +79,8 @@ contract BountyRegistry is Pausable {
 
     event NewVerdict(
         uint128 bountyGuid,
-        uint256 verdicts
+        uint256 verdicts,
+        address voter
     );
 
     event QuorumReached(
@@ -428,7 +429,7 @@ contract BountyRegistry is Pausable {
             emit QuorumReached(block.number);
         }
 
-        emit NewVerdict(bountyGuid, verdicts);
+        emit NewVerdict(bountyGuid, verdicts, msg.sender);
      }
 
     // This struct exists to move state from settleBounty into memory from stack
