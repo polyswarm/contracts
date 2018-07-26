@@ -23,12 +23,12 @@ contract BountyRegistry is Pausable {
         address assignedArbiter;
         bool quorumReached;
         uint256 quorumBlock;
+        uint256 quorumMask;
         uint256[8] bloom;
         address[] voters;
         uint256[] verdicts;
         bool[] bloomVotes;
         mapping (uint256 => uint256) quorumVerdicts;
-        uint256 quorumMask;
     }
 
     struct Assertion {
