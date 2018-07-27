@@ -600,6 +600,8 @@ contract BountyRegistry is Pausable {
         }
 
         if (arbiterReward != 0 && bounty.assignedArbiter == msg.sender) {
+            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number);
+            
             token.safeTransfer(bounty.assignedArbiter, arbiterReward);
         }
 
@@ -610,11 +612,11 @@ contract BountyRegistry is Pausable {
     /**
      *  Generates a random number from 0 to range based on the last block hash
      *
-     *  @param seed random number for reprocucing
+     *  @param seed random number for reproducing
      *  @param range end range for random number
      */
-    function randomGen(uint seed, uint256 range) constant private returns (int256 randomNumber) {
-        return int256(uint256(keccak256(abi.encodePacked(blockhash(block.number-1), seed))) % range);
+    function randomGen(uint256 targetBlock, uint seed, uint256 range) constant private returns (int256 randomNumber) {
+        return int256(uint256(keccak256(abi.encodePacked(blockhash(targetBlock), seed))) % range);
     }
 
     /**
@@ -639,7 +641,7 @@ contract BountyRegistry is Pausable {
             sum = sum.add(staking.balanceOf(bounty.voters[i]));
         }
 
-        randomNum = randomGen(block.number, sum);
+        randomNum = randomGen(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow), block.number, sum);
 
         for (i = 0; i < bounty.voters.length; i++) {
             randomNum -= int256(staking.balanceOf(bounty.voters[i]));
