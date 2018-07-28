@@ -455,7 +455,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await settleBounty(this.bountyregistry, expert0, guid);
       await settleBounty(this.bountyregistry, expert1, guid);
 
-      await advanceToBlock(VALID_HASH_BLOCK);
+      await advanceToBlock(web3.eth.blockNumber + VALID_HASH_BLOCK);
 
       await settleBounty(this.bountyregistry, arbiter2, guid);
 
