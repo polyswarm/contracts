@@ -105,6 +105,7 @@ contract BountyRegistry is Pausable {
     uint256 public constant ASSERTION_REVEAL_WINDOW = 25; // BLOCKS
     uint256 public constant MALICIOUS_VOTE_COEFFICIENT = 10;
     uint256 public constant BENIGN_VOTE_COEFFICIENT = 1;
+    uint256 public constant VALID_HASH_PERIOD = 256; // number of blocks in the past you can still get a blockhash
 
 
     uint256 public arbiterCount;
@@ -399,6 +400,7 @@ contract BountyRegistry is Pausable {
 
             if (bounty.quorumMask != 0 && (bounty.quorumMask & (1 << i) != 0)) {
                 tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
+                quorumCount = quorumCount.add(1);
                 continue;
             }
 
@@ -425,7 +427,7 @@ contract BountyRegistry is Pausable {
         // check if all arbiters have voted or if we have quorum for all the artifacts
         if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
             bounty.quorumReached = true;
-            bounty.quorumBlock = block.number - bountiesByGuid[bountyGuid].expirationBlock;
+            bounty.quorumBlock = block.number.sub(bountiesByGuid[bountyGuid].expirationBlock);
             emit QuorumReached(block.number);
         }
 
@@ -577,8 +579,15 @@ contract BountyRegistry is Pausable {
         // Check that the voting round has closed
         require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number || bounty.quorumReached);
 
-        if (bounty.assignedArbiter == address(0)) {
-            bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
+        if (isArbiter(msg.sender)) {
+            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number);
+            if (bounty.assignedArbiter == address(0)) {
+                if (bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow).add(VALID_HASH_PERIOD) >= block.number) {
+                    bounty.assignedArbiter = getWeightedRandomArbiter(bountyGuid);
+                } else {
+                    bounty.assignedArbiter = msg.sender;
+                }
+            }
         }
 
         uint256 bountyRefund;

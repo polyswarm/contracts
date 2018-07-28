@@ -1,8 +1,10 @@
 pragma solidity ^0.4.23;
 import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
+import "zeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract OfferMultiSig is Pausable {
-
+    using SafeMath for uint256;
+    
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
     uint256 public constant MIN_SETTLEMENT_PERIOD = 60 seconds;
@@ -63,7 +65,7 @@ contract OfferMultiSig is Pausable {
         require(_ambassador != address(0), 'No ambassador lib provided to constructor');
         require(_expert != address(0), 'No expert provided to constructor');
         require(_nectarAddress != address(0), 'No token provided to constructor');
-        require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD, 'Settlement peroid of range');
+        require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD, 'Settlement peroid out of range');
 
         offerLib = _offerLib;
         ambassador = _ambassador;
@@ -279,7 +281,7 @@ contract OfferMultiSig is Pausable {
         sequence = _getSequence(_state);
 
         isInSettlementState = 1;
-        settlementPeriodEnd = now + settlementPeriodLength;
+        settlementPeriodEnd = now.add(settlementPeriodLength);
 
         emit StartedSettle(msg.sender, sequence, settlementPeriodEnd);
     }
@@ -327,7 +329,7 @@ contract OfferMultiSig is Pausable {
     * @param _websocketUri uri of whisper node
     */
 
-    function setCommunicationUri(bytes32 _websocketUri) external {
+    function setCommunicationUri(bytes32 _websocketUri) external whenNotPaused {
         require(msg.sender == ambassador);
 
         websocketUri = _websocketUri;
