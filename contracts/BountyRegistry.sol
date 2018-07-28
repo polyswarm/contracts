@@ -414,8 +414,10 @@ contract BountyRegistry is Pausable {
             uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
 
             if (malVotes.mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
+                tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
                 quorumCount = quorumCount.add(1);
             } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+                tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
                 quorumCount = quorumCount.add(1);
             }
 
@@ -609,8 +611,6 @@ contract BountyRegistry is Pausable {
         }
 
         if (arbiterReward != 0 && bounty.assignedArbiter == msg.sender) {
-            require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) <= block.number);
-            
             token.safeTransfer(bounty.assignedArbiter, arbiterReward);
         }
 
