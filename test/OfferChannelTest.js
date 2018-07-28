@@ -106,8 +106,8 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   it("should allow for canceling a pending offer", async () => {
     let settlementPeriodLength = 60; // seconds
-
-    await registry.initializeOfferChannel(guid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
+    let cancelGuid = 111;
+    await registry.initializeOfferChannel(cancelGuid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
 
     let offerChannel = await registry.getParticipantsChannel(ambassador, expert);
 

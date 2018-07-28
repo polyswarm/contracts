@@ -2,7 +2,7 @@ FROM node:alpine
 
 RUN npm install truffle -g
 
-COPY ./package.json ./
+COPY package.json package-lock.json ./
 
 # install git
 RUN apk update && apk upgrade && \

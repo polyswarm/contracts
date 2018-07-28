@@ -47,6 +47,7 @@ contract OfferRegistry is Pausable {
         require(address(0) != _expert);
         require(address(0) != _ambassador);
         require(msg.sender == _ambassador);
+        require(guidToChannel[guid].msig == address(0));
 
         bytes32 key = getParticipantsHash(_ambassador, _expert);
         
@@ -117,8 +118,10 @@ contract OfferRegistry is Pausable {
      * @return list of every channel registered
      */
 
-    function pauseChannels() external onlyOwner whenPaused {
+    function pauseChannels() external onlyOwner whenNotPaused {
         require(channelsGuids.length != 0);
+
+        pause();
 
         for (uint i = 0; i < channelsGuids.length; i++) {
             OfferMultiSig(guidToChannel[channelsGuids[i]].msig).pause();
