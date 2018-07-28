@@ -121,7 +121,7 @@ library OfferLib {
     }
 
     function open(bytes _state) public returns (bool) {
-        require(msg.sender == getPartyA(_state), 'Party A does not mactch signature recovery');
+        require(msg.sender == getPartyA(_state), 'Party A does not match signature recovery');
         // get the token instance used to allow funds to msig
         NectarToken _t = NectarToken(getTokenAddress(_state));
         // ensure the amount sent to open channel matches the signed state balance
@@ -137,7 +137,7 @@ library OfferLib {
         NectarToken _t = NectarToken(getTokenAddress(_state));
         
         // ensure the amount sent to join channel matches the signed state balance
-        require(msg.sender == getPartyB(_state), 'Party B does not mactch signature recovery');
+        require(msg.sender == getPartyB(_state), 'Party B does not match signature recovery');
 
         // Require bonded is the sum of balances in state
         require(getTotal(_state) == _t.balanceOf(this), 'token total deposited does not match state balance');
@@ -167,7 +167,7 @@ library OfferLib {
         address _b = getPartyB(_state);
 
         NectarToken _t = NectarToken(getTokenAddress(_state));
-        require(getTotal(_state) == _t.balanceOf(this), 'tried finalizing token state that does not match bnded value');
+        require(getTotal(_state) == _t.balanceOf(this), 'tried finalizing token state that does not match bonded value');
 
         _t.transfer(_a, getBalanceA(_state));
         _t.transfer(_b, getBalanceB(_state));

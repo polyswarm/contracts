@@ -45,7 +45,6 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
 
   it("should be able to pause all offer multi sigs", async () => {
     let msig = await web3.eth.contract(OfferMultiSig.abi).at(offerMsig);
-    await registry.pause();
     await registry.pauseChannels();
 
     assert.equal(await msig.paused(), true);
@@ -54,7 +53,6 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
   it("should be able to resume all offer multi sigs", async () => {
     let msig = await web3.eth.contract(OfferMultiSig.abi).at(offerMsig);
     await registry.unpauseChannels();
-    await registry.unpause();
 
     assert.equal(await msig.paused(), false);
   })
