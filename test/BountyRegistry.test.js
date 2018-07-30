@@ -345,7 +345,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
     });
 
-    it('should not allow voting after quorum is reached', async function() {
+    it('should allow voting after quorum is reached', async function() {
       let amount = ether(10);
       let bid = ether(20);
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IPFS_README, 2, 10);
@@ -357,7 +357,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceToBlock(web3.eth.blockNumber + 35);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3);
-      await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3).should.be.rejectedWith(EVMRevert);
+      await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x3).should.be.fulfilled;
     });
 
     it('should not allow abriters to settle before the voting period ends', async function() {

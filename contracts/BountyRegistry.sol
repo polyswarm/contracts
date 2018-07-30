@@ -384,8 +384,6 @@ contract BountyRegistry is Pausable {
         require(bounty.expirationBlock.add(ASSERTION_REVEAL_WINDOW).add(arbiterVoteWindow) > block.number);
         // Check to make sure arbiters can't double vote
         require(arbiterVoteRegistryByGuid[bountyGuid][msg.sender] == false);
-        // Check for quorum
-        require(bounty.quorumReached == false);
 
         bounty.verdicts.push(verdicts);
         bounty.voters.push(msg.sender);
@@ -427,7 +425,7 @@ contract BountyRegistry is Pausable {
         bounty.quorumMask = tempQuorumMask;
 
         // check if all arbiters have voted or if we have quorum for all the artifacts
-        if (bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) {
+        if ((bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) && !bounty.quorumReached)  {
             bounty.quorumReached = true;
             bounty.quorumBlock = block.number.sub(bountiesByGuid[bountyGuid].expirationBlock);
             emit QuorumReached(block.number);
