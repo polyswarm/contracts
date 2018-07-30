@@ -27,20 +27,13 @@ module.exports = async callback => {
     options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
   }
 
-  if (options && options.free) {
-    console.log("Setting gasPrice to 0 (Free to use.)");
-    config.push('free: Yes');
-  } else {
-    config.push('free: No');
-  }
-
   if (args.home) {
     await deployTo(args.home, 'homechain', options);
   }
 
   if (args.side) {
     // Extra user accounts on the sidechain shouldn't be pre-funded. All funding should happen through a relay.
-    await deployTo(args.side, 'sidechain', null);
+    await deployTo(args.side, 'sidechain', options);
   }
 
   writeFile(`${__dirname}/../build/polyswarmd.yml`, config.join('\n'), function(err) {
@@ -75,6 +68,12 @@ module.exports = async callback => {
     config.push(`  offer_registry_address: "${offerRegistry.address}"`);
     // TODO: get real address
     config.push(`  erc20_relay_address: "${'0x0000000000000000000000000000000000000000'}"`);
+    if (options && options.free) {
+      console.log("Setting gasPrice to 0 (Free to use.)");
+      config.push('  free: Yes');
+    } else {
+      config.push('  free: No');
+    }
 
     await web3.eth.accounts.forEach(async account => {
       console.log('Minting tokens for ', account);
