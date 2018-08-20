@@ -21,6 +21,13 @@ module.exports = async callback => {
     config.push(`ipfs_uri: ${args.ipfs}`);
   }
 
+  if (args.db) {
+    config.push(`db_uri: ${args.db}`);
+    config.push(`require_api_key: yes`);
+  } else {
+    config.push(`require_api_key: no`);
+  }
+
   let options = null
   if (args.options && fs.existsSync(args.options)) {
     options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
