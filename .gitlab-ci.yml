@@ -16,7 +16,6 @@ kick-e2e:
       # kick e2e
       - >-
         E2E_PIPELINE_ID=`curl
-        --silent
         --request POST
         --form "token=$CI_JOB_TOKEN"
         --form "variables[SOURCE_PROJECT]=$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
