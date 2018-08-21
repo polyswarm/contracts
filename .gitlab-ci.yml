@@ -38,7 +38,7 @@ kick-e2e:
       # check for success
       - >-
         if [ $PIPELINE_STATUS != "success" ]; then
-          echo "failure further down the pipeline"
+          echo "failure further down the pipeline; PIPELINE_STATUS is $PIPELINE_STATUS"
           exit 1
         fi
 
