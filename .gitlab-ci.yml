@@ -21,7 +21,7 @@ kick-e2e:
         --form "variables[SOURCE_PROJECT]=$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
         --form "variables[SOURCE_BRANCH]=$CI_COMMIT_REF_NAME"
         --form ref=master
-        "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
+        "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" && echo $? && echo $E2E_PIPELINE_ID | jq -r ".id"`
 
       # poll for it to finish
       - >-
