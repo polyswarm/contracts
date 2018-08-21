@@ -41,3 +41,4 @@ kick-e2e:
           echo "failure further down the pipeline"
           exit 1
         fi
+
