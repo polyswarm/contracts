@@ -4,8 +4,8 @@ import "zeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
 
 
 contract NectarToken is MintableToken {
-    string public name = "Rektar";
-    string public symbol = "RKT";
+    string public name = "Nectar";
+    string public symbol = "NCT";
     uint8 public decimals = 18;
 
     bool public transfersEnabled = false;
