@@ -17,6 +17,7 @@ kick-e2e:
       - >-
         E2E_PIPELINE_ID=`curl
         --request POST
+        --header "PRIVATE-TOKEN: $CI_CUSTOM_CI_PAT"
         --form "token=$CI_JOB_TOKEN"
         --form ref=master
         "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline"`
