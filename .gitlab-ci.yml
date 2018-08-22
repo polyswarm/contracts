@@ -39,4 +39,4 @@ kick-e2e:
           echo "failure further down the pipeline; PIPELINE_STATUS is $PIPELINE_STATUS"
           exit 1
         fi
-
+#
