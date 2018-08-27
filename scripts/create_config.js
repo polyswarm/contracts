@@ -1,5 +1,4 @@
 const Net = require('web3-net');
-const writeFile = require('write');
 const yaml = require('js-yaml')
 const args = require('args-parser')(process.argv);
 const NectarToken = artifacts.require('NectarToken');
@@ -36,16 +35,21 @@ module.exports = async callback => {
     await deployTo(args.side, 'sidechain', options);
   }
 
-  writeFile(`${__dirname}/../build/polyswarmd.yml`, config.join('\n'), function(err) {
-    if (err) console.log(err);
-    console.log('New config created!');
-    writeFile(`${__dirname}/../build/.ready`, '', function(err) {
-      if (err) console.log(err);
-      setTimeout(() => {
-        fs.unlinkSync(`${__dirname}/../build/.ready`);
-      }, 2000);
-    });
-  });
+  try {
+    fs.writeFileSync(`${__dirname}/../build/polyswarmd.yml`, config.join('\n'));
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
+  }
+
+  console.log('New config created!');
+
+  try {
+    fs.writeFileSync(`${__dirname}/../build/.ready`, '');
+  } catch (e) {
+    console.error(e);
+    process.exit(1);
+  }
 
   callback();
 
