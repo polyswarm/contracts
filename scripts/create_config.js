@@ -51,6 +51,10 @@ module.exports = async callback => {
     process.exit(1);
   }
 
+  // Unlink the ready file after a delay so that subsequent compose restarts will wait on new contract deploy before launching polyswarmd
+  await new Promise(resolve => setTimeout(resolve, 2000));
+  fs.unlinkSync(`${__dirname}/../build/.ready`);
+
   callback();
 
   async function deployTo(uri, name, options) {
