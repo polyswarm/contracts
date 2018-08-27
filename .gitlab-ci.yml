@@ -16,13 +16,11 @@ kick-e2e:
       # kick e2e
       - >-
         E2E_PIPELINE_ID=`curl
-        --silent
-        --request POST
-        --form "token=$CI_JOB_TOKEN"
-        --form "variables[SOURCE_PROJECT]=$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
-        --form "variables[SOURCE_BRANCH]=$CI_COMMIT_REF_NAME"
-        --form ref=master
-        "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
+        --header "PRIVATE-TOKEN: $CI_CUSTOM_CI_PAT"
+        "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline"`
+      - >- 
+        echo $?
+        echo $E2E_PIPELINE_ID
 
       # poll for it to finish
       - >-
@@ -38,6 +36,7 @@ kick-e2e:
       # check for success
       - >-
         if [ $PIPELINE_STATUS != "success" ]; then
-          echo "failure further down the pipeline"
+          echo "failure further down the pipeline; PIPELINE_STATUS is $PIPELINE_STATUS"
           exit 1
         fi
+
