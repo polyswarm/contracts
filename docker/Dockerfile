@@ -1,6 +1,8 @@
 FROM node:alpine
 
-RUN npm install truffle -g
+# Needed to fix permissions issue when deploying to hive
+RUN npm config set unsafe-perm true && \
+    npm install truffle -g
 
 COPY package.json package-lock.json ./
 

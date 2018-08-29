@@ -21,6 +21,14 @@ module.exports = async callback => {
     config.push(`ipfs_uri: ${args.ipfs}`);
   }
 
+  if (args.db) {
+    config.push(`db_uri: ${args.db}`);
+    config.push(`require_api_key: true`);
+  } else {
+    config.push(`db_uri:`);
+    config.push(`require_api_key: false`);
+  }
+
   let options = null
   if (args.options && fs.existsSync(args.options)) {
     options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
@@ -78,9 +86,9 @@ module.exports = async callback => {
     config.push(`  erc20_relay_address: "${'0x0000000000000000000000000000000000000000'}"`);
     if (options && options.free) {
       console.log("Setting gasPrice to 0 (Free to use.)");
-      config.push('  free: Yes');
+      config.push('  free: true');
     } else {
-      config.push('  free: No');
+      config.push('  free: false');
     }
 
     await web3.eth.accounts.forEach(async account => {
