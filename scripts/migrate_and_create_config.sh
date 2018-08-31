@@ -41,4 +41,8 @@ if [[ $1 == "--idempotent" && -f "build/polyswarmd.yml" ]]; then
 fi
 
 truffle migrate --reset
-truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --db=$DB --options=$OPTIONS
+if [ -z $DB ]; then
+    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --options=$OPTIONS
+else
+    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --db=$DB --options=$OPTIONS
+fi
