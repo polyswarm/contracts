@@ -34,5 +34,11 @@ wait_for_min_gas_limit() {
 wait_for_all_unlocked
 wait_for_min_gas_limit
 
+# Replace with real argument parsing if we support other options later
+if [[ $1 == "--idempotent" && -f "build/polyswarmd.yml" ]]; then
+    >&2 echo "polyswarmd.yml detected in idempotent mode, exiting"
+    exit
+fi
+
 truffle migrate --reset
 truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --db=$DB --options=$OPTIONS
