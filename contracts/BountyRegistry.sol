@@ -84,6 +84,7 @@ contract BountyRegistry is Pausable {
     );
 
     event QuorumReached(
+        uint128 bountyGuid,
         uint256 block
     );
 
@@ -428,7 +429,7 @@ contract BountyRegistry is Pausable {
         if ((bounty.voters.length == arbiterCount || quorumCount == bounty.numArtifacts) && !bounty.quorumReached)  {
             bounty.quorumReached = true;
             bounty.quorumBlock = block.number.sub(bountiesByGuid[bountyGuid].expirationBlock);
-            emit QuorumReached(block.number);
+            emit QuorumReached(bountyGuid, block.number);
         }
 
         emit NewVerdict(bountyGuid, verdicts, msg.sender);
