@@ -7,8 +7,8 @@ contract OfferMultiSig is Pausable {
     
     string public constant NAME = "Offer MultiSig";
     string public constant VERSION = "0.0.1";
-    uint256 public constant MIN_SETTLEMENT_PERIOD = 60 seconds;
-    uint256 public constant MAX_SETTLEMENT_PERIOD = 90 days;
+    uint256 public constant MIN_SETTLEMENT_PERIOD = 10;
+    uint256 public constant MAX_SETTLEMENT_PERIOD = 3600;
 
     event CommunicationsSet(
         bytes32 websocketUri
@@ -65,7 +65,7 @@ contract OfferMultiSig is Pausable {
         require(_ambassador != address(0), 'No ambassador lib provided to constructor');
         require(_expert != address(0), 'No expert provided to constructor');
         require(_nectarAddress != address(0), 'No token provided to constructor');
-        require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD, 'Settlement peroid out of range');
+        require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD, 'Settlement period out of range');
 
         offerLib = _offerLib;
         ambassador = _ambassador;
@@ -207,7 +207,7 @@ contract OfferMultiSig is Pausable {
         address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress);
-        require(settlementPeriodEnd <= now);
+        require(settlementPeriodEnd <= block.number);
         require(isClosed == 0);
         require(isInSettlementState == 1);
 
@@ -218,6 +218,8 @@ contract OfferMultiSig is Pausable {
 
         _finalize(_state);
         isOpen = false;
+
+        emit ClosedAgreement(_expert, _ambassador);
     }
 
 
@@ -281,7 +283,7 @@ contract OfferMultiSig is Pausable {
         sequence = _getSequence(_state);
 
         isInSettlementState = 1;
-        settlementPeriodEnd = now.add(settlementPeriodLength);
+        settlementPeriodEnd = block.number.add(settlementPeriodLength);
 
         emit StartedSettle(msg.sender, sequence, settlementPeriodEnd);
     }
@@ -303,11 +305,11 @@ contract OfferMultiSig is Pausable {
         require(_hasAll_Sigs(_ambassador, _expert));
 
         require(isInSettlementState == 1);
-        require(now < settlementPeriodEnd);
+        require(block.number < settlementPeriodEnd);
 
         require(_getSequence(_state) > sequence);
 
-        settlementPeriodEnd = now + settlementPeriodLength;
+        settlementPeriodEnd = block.number.add(settlementPeriodLength);
         state = _state;
         sequence = _getSequence(_state);
 
