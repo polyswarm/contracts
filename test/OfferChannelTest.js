@@ -1,4 +1,6 @@
 'use strict'
+import advanceToBlock from './helpers/advanceToBlock';
+
 const OfferLib = artifacts.require("./OfferLib.sol")
 const Web3Utils = require('web3-utils');
 const OfferRegistry = artifacts.require("./OfferRegistry.sol")
@@ -54,8 +56,8 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     nectar.mint(ambassador, 2000);
   })
 
-  it("deploy MultiSig less than 60 seconds or 90 days fails", async () => {
-    let settlementPeriodLength = 60; // seconds
+  it("deploy MultiSig less than 10 blocks or 90 days fails", async () => {
+    let settlementPeriodLength = 10; // seconds
 
     // TODO: Use EVMRevert helper
     try {
@@ -73,8 +75,8 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   })
 
-  it("deploy MultiSig with 60 second settlement period length", async () => {
-    let settlementPeriodLength = 60; // seconds
+  it("deploy MultiSig with 10 second settlement period length", async () => {
+    let settlementPeriodLength = 10; // seconds
 
     let tx = await registry.initializeOfferChannel(guid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
 
@@ -105,7 +107,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
   })
 
   it("should allow for canceling a pending offer", async () => {
-    let settlementPeriodLength = 60; // seconds
+    let settlementPeriodLength = 10; // seconds
     let cancelGuid = 111;
     await registry.initializeOfferChannel(cancelGuid, ambassador, expert, settlementPeriodLength, { from: ambassador, gas: 5000000 });
 
@@ -387,9 +389,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     msig.challengeSettle(s2marshall, sigV, sigR, sigS, { from: ambassador, gas: 1000000 })
   })
 
-  it("should revert if tring to before reply timeout", async () => {
-    const timeout = ms => new Promise(res => setTimeout(res, ms))
-
+  it("should revert if trying to close before reply timeout", async () => {
     const r = s2sigA.substr(0,66)
     const s = "0x" + s2sigA.substr(66,64)
     const v = parseInt(s2sigA.substr(130, 2)) + 27
@@ -411,9 +411,6 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     sigS.push(s)
     sigS.push(s2)
 
-    // increase time
-    await timeout(1000);
-
     web3.currentProvider.send({
       jsonrpc: '2.0',
       method: 'evm_mine',
@@ -430,9 +427,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   })
 
-  it("can end the close after 60 seconds", async () => {
-    const timeout = ms => new Promise(res => setTimeout(res, ms))
-
+  it("can end the close after 10 blocks", async () => {
     const r = s2sigA.substr(0,66)
     const s = "0x" + s2sigA.substr(66,64)
     const v = parseInt(s2sigA.substr(130, 2)) + 27
@@ -451,15 +446,8 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     sigR.push(r2)
     sigS.push(s)
     sigS.push(s2)
-
-    // increase time
-    await timeout(61000);
-
-    await web3.currentProvider.send({
-      jsonrpc: '2.0',
-      method: 'evm_mine',
-      id: Math.floor(Math.random() * 10000)
-    });
+    
+    await advanceToBlock(web3.eth.blockNumber + 10);
 
     await msig.closeAgreementWithTimeout(s2marshall, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
   })
