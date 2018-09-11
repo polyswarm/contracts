@@ -79,8 +79,11 @@ web3.eth.getTransaction(txHash, function(err, result) {
 		})
 		.then(function(events){
 			for (let event of events) {
-				if ('guid' in event.returnValues && event.returnValues.guid.substring(0,20) == guidBeggining) {
+				const guid = event.returnValues.guid || event.returnValues.bountyGuid
+
+				if (guid && guid.substring(0,20) == guidBeggining) {
 					console.log('RELATED EVENT FOUND!');
+					console.log('Block:' + event.blockNumber);
 					console.log(event.event);
 					console.log(event.returnValues);
 				}
