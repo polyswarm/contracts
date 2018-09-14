@@ -5,28 +5,31 @@ const NectarToken = artifacts.require('NectarToken');
 const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
+const OfferLib = artifacts.require('OfferLib');
+const OfferMultiSig = artifacts.require('OfferMultiSig');
+
 const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
 const fs = require('fs');
+const request = require('request-promise');
 
 module.exports = async callback => {
-  const config = [];
+  const config = {};
 
   if (!args.home && !args.side) {
-    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --options=<options_path>');
-    return;
+    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
+    process.exit(1);
   }
 
   if (args.ipfs) {
-    config.push(`ipfs_uri: ${args.ipfs}`);
+    config['ipfs_uri'] = args.ipfs
   }
 
   if (args.db) {
-    config.push(`db_uri: ${args.db}`);
-    config.push(`require_api_key: true`);
+    config['db_uri'] = args.db
+    config['require_api_key'] = 'true'
   } else {
-    config.push(`db_uri:`);
-    config.push(`require_api_key: false`);
+    config['require_api_key'] = 'false'
   }
 
   let options = null
@@ -35,37 +38,49 @@ module.exports = async callback => {
   }
 
   if (args.home) {
+    console.log('running for homechain')
     await deployTo(args.home, 'homechain', options);
   }
 
   if (args.side) {
+    console.log('running on sidechain')
     // Extra user accounts on the sidechain shouldn't be pre-funded. All funding should happen through a relay.
     await deployTo(args.side, 'sidechain', options);
-  }
-
-  try {
-    fs.writeFileSync(`${__dirname}/../build/polyswarmd.yml`, config.join('\n'));
-  } catch (e) {
-    console.error(e);
-    process.exit(1);
   }
 
   console.log('New config created!');
 
   try {
-    fs.writeFileSync(`${__dirname}/../build/.ready`, '');
+    await putABI(NectarToken);
+    await putABI(OfferRegistry);
+    await putABI(BountyRegistry);
+    await putABI(ArbiterStaking);
+    await putABI(OfferLib);
+    await putABI(OfferMultiSig);
+
+    // config paramaters
+    await request({
+      method: 'PUT',
+      url: `${args.consul}/v1/kv/config`,
+      json: config
+    });
   } catch (e) {
-    console.error(e);
+    console.error('Failed to PUT contract configs');
     process.exit(1);
   }
 
-  // Unlink the ready file after a delay so that subsequent compose restarts will wait on new contract deploy before launching polyswarmd
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  fs.unlinkSync(`${__dirname}/../build/.ready`);
-
   callback();
 
-  async function deployTo(uri, name, options) {
+  async function putABI(artifact) {
+    const { contractName, abi } = artifact._json;
+    return await request({
+      method: 'PUT',
+      url: `${args.consul}/v1/kv/${contractName}`,
+      json: { abi }
+    });
+  }
+
+  async function deployTo(uri, name, options) {    
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
@@ -74,21 +89,23 @@ module.exports = async callback => {
     const offerRegistry = await OfferRegistry.new(nectarToken.address);
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION);
     const net = new Net(new web3.providers.HttpProvider(uri));
-    const chainId = await net.getId();
+    const chainId = await net.getId();    
 
-    config.push(`${name}:`);
-    config.push(`  chain_id: ${chainId}`);
-    config.push(`  eth_uri: ${uri}`);
-    config.push(`  nectar_token_address: "${nectarToken.address}"`);
-    config.push(`  bounty_registry_address: "${bountyRegistry.address}"`);
-    config.push(`  offer_registry_address: "${offerRegistry.address}"`);
+    config[name] = {}    
+
+    config[name].chain_id = chainId;
+    config[name].eth_uri = uri;    
+    config[name].nectar_token_address = nectarToken.address;
+    config[name].bounty_registry_address = bountyRegistry.address;    
+    config[name].offer_registry_address = offerRegistry.address;
     // TODO: get real address
-    config.push(`  erc20_relay_address: "${'0x0000000000000000000000000000000000000000'}"`);
+    config[name].erc20_relay_address = '0x0000000000000000000000000000000000000000';
+    
     if (options && options.free) {
       console.log("Setting gasPrice to 0 (Free to use.)");
-      config.push('  free: true');
+      config[name].free = 'true';
     } else {
-      config.push('  free: false');
+      config[name].free = 'false';
     }
 
     await web3.eth.accounts.forEach(async account => {
