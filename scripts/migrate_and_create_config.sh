@@ -47,7 +47,7 @@ if [ $? -eq 1 ]; then
 fi
 
 if [ -z $DB ]; then
-    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --options=$OPTIONS
+    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --consul=$CONSUL --options=$OPTIONS
 else
-    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --db=$DB --options=$OPTIONS
+    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --consul=$CONSUL --db=$DB --options=$OPTIONS
 fi
