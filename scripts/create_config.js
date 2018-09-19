@@ -12,6 +12,7 @@ const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
 const fs = require('fs');
 const request = require('request-promise');
+const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
 
 module.exports = async callback => {
   const config = {};
@@ -58,12 +59,13 @@ module.exports = async callback => {
     await putABI(OfferLib);
     await putABI(OfferMultiSig);
 
-    // config paramaters
     await request({
+      headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/config`,
+      url: `${args.consul}/v1/kv/gamma/config`,
       json: config
     });
+
   } catch (e) {
     console.error('Failed to PUT contract configs');
     process.exit(1);
@@ -74,9 +76,19 @@ module.exports = async callback => {
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
     return await request({
+      headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/${contractName}`,
+      url: `${args.consul}/v1/kv/gamma/${contractName}`,
       json: { abi }
+    });
+  }
+
+  async function putChainConfig(name, config) {
+    await request({
+      headers,
+      method: 'PUT',
+      url: `${args.consul}/v1/kv/${name}`,
+      json: config
     });
   }
 
@@ -90,22 +102,21 @@ module.exports = async callback => {
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION);
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();    
+    const chainConfig = {}
 
-    config[name] = {}    
-
-    config[name].chain_id = chainId;
-    config[name].eth_uri = uri;    
-    config[name].nectar_token_address = nectarToken.address;
-    config[name].bounty_registry_address = bountyRegistry.address;    
-    config[name].offer_registry_address = offerRegistry.address;
+    chainConfig.chain_id = chainId;
+    chainConfig.eth_uri = uri;    
+    chainConfig.nectar_token_address = nectarToken.address;
+    chainConfig.bounty_registry_address = bountyRegistry.address;    
+    chainConfig.offer_registry_address = offerRegistry.address;
     // TODO: get real address
-    config[name].erc20_relay_address = '0x0000000000000000000000000000000000000000';
+    chainConfig.erc20_relay_address = '0x0000000000000000000000000000000000000000';
     
     if (options && options.free) {
       console.log("Setting gasPrice to 0 (Free to use.)");
-      config[name].free = 'true';
+      chainConfig.free = 'true';
     } else {
-      config[name].free = 'false';
+      chainConfig.free = 'false';
     }
 
     await web3.eth.accounts.forEach(async account => {
@@ -135,5 +146,7 @@ module.exports = async callback => {
         await nectarToken.mint(account, web3.toWei(1000000000, 'ether'));
       }));
     }
+
+    await putChainConfig(name, chainConfig);
   }
 };
