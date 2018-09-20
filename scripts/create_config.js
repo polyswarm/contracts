@@ -17,7 +17,7 @@ const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSU
 module.exports = async callback => {
   const config = {};
 
-  if (!args.home && !args.side) {
+  if (!args.home || !args.side) {
     console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
     process.exit(1);
   }
@@ -40,13 +40,25 @@ module.exports = async callback => {
 
   if (args.home) {
     console.log('running for homechain')
-    await deployTo(args.home, 'homechain', options);
+    try {
+      await deployTo(args.home, 'homechain', options);
+    } catch (e) {
+      console.error('Failied on homechain');
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   if (args.side) {
-    console.log('running on sidechain')
+    console.log('running for sidechain')
     // Extra user accounts on the sidechain shouldn't be pre-funded. All funding should happen through a relay.
-    await deployTo(args.side, 'sidechain', options);
+    try {
+      await deployTo(args.side, 'sidechain', options);
+    } catch (e) {
+      console.error('Failied on sidechain');
+      console.error(e);
+      process.exit(1);
+    }
   }
 
   console.log('New config created!');
@@ -68,6 +80,7 @@ module.exports = async callback => {
 
   } catch (e) {
     console.error('Failed to PUT contract configs');
+    console.error(e);
     process.exit(1);
   }
 
