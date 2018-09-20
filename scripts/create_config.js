@@ -18,7 +18,7 @@ module.exports = async callback => {
   const config = {};
 
   if (!args.home || !args.side) {
-    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
+    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
     process.exit(1);
   }
 
@@ -74,7 +74,7 @@ module.exports = async callback => {
     await request({
       headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/gamma/config`,
+      url: `${args.consul}/v1/kv/${args['poly-sidechain-name']}/config`,
       json: config
     });
 
@@ -91,7 +91,7 @@ module.exports = async callback => {
     return await request({
       headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/gamma/${contractName}`,
+      url: `${args.consul}/v1/kv/${args['poly-sidechain-name']}/${contractName}`,
       json: { abi }
     });
   }
@@ -100,7 +100,7 @@ module.exports = async callback => {
     await request({
       headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/${name}`,
+      url: `${args.consul}/v1/kv/${args['poly-sidechain-name']}/${name}`,
       json: config
     });
   }
