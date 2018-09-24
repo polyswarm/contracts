@@ -5,6 +5,7 @@ const NectarToken = artifacts.require('NectarToken');
 const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
+const ERC20Relay = artifacts.require('ERC20Relay');
 const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
 
@@ -13,6 +14,21 @@ const STAKE_DURATION = 100;
 const fs = require('fs');
 const request = require('request-promise');
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
+
+// https://etherscan.io/token/0x9e46a38f5daabe8683e10793b06749eef7d733d1#readContract totalSupply
+const TOTAL_SUPPLY = '1885913075851542181982426285';
+
+// https://coinmarketcap.com/currencies/polyswarm/ retrieved on 5/28/18
+const NCT_ETH_EXCHANGE_RATE = 80972;
+
+// See docker setup
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+const FEE_WALLET = '0x0f57baedcf2c84383492d1ea700835ce2492c48a';
+const VERIFIER_ADDRESSES = [
+  '0xe6cc4b147e3b1b59d2ac2f2f3784bbac1774bbf7',
+  '0x28fad0751f8f406d962d27b60a2a47ccceeb8096',
+  '0x87cb0b17cf9ebcb0447da7da55c703812813524b',
+];
 
 module.exports = async callback => {
   const config = {};
@@ -70,6 +86,7 @@ module.exports = async callback => {
     await putABI(ArbiterStaking);
     await putABI(OfferLib);
     await putABI(OfferMultiSig);
+    await putABI(ERC20Relay);
 
     await request({
       headers,
@@ -109,21 +126,31 @@ module.exports = async callback => {
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
+    ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
     const nectarToken = await NectarToken.new();
     const offerRegistry = await OfferRegistry.new(nectarToken.address);
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION);
+    
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();    
-    const chainConfig = {}
+    const chainConfig = {};
+    let erc20Relay;
+
+    if (name == 'homechain') {
+      erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, FEE_WALLET, VERIFIER_ADDRESSES);
+      await nectarToken.mint(web3.eth.accounts[0], TOTAL_SUPPLY);
+    } else if (name == 'sidechain') {
+      erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, VERIFIER_ADDRESSES);
+      await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY);
+    }
 
     chainConfig.chain_id = chainId;
     chainConfig.eth_uri = uri;    
     chainConfig.nectar_token_address = nectarToken.address;
     chainConfig.bounty_registry_address = bountyRegistry.address;    
     chainConfig.offer_registry_address = offerRegistry.address;
-    // TODO: get real address
-    chainConfig.erc20_relay_address = '0x0000000000000000000000000000000000000000';
+    chainConfig.erc20_relay_address = erc20Relay.address;
     
     if (options && options.free) {
       console.log("Setting gasPrice to 0 (Free to use.)");
