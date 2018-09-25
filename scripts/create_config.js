@@ -33,8 +33,9 @@ const VERIFIER_ADDRESSES = [
 module.exports = async callback => {
   const config = {};
 
-  if (!args.home || !args.side) {
+  if (!args.home || !args.side || !args.ipfs || !args.consul || !args['poly-sidechain-name']) {
     console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
+    callback('missing args!!!');
     process.exit(1);
   }
 
@@ -51,7 +52,14 @@ module.exports = async callback => {
 
   let options = null
   if (args.options && fs.existsSync(args.options)) {
-    options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
+    try {
+      options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
+    } catch (e) {
+      console.error('Failied reading options');
+      console.error(e);
+      callback(e);
+      process.exit(1);
+    }
   }
 
   if (args.home) {
@@ -61,6 +69,7 @@ module.exports = async callback => {
     } catch (e) {
       console.error('Failied on homechain');
       console.error(e);
+      callback(e);
       process.exit(1);
     }
   }
@@ -73,6 +82,7 @@ module.exports = async callback => {
     } catch (e) {
       console.error('Failied on sidechain');
       console.error(e);
+      callback(e);
       process.exit(1);
     }
   }
@@ -98,9 +108,11 @@ module.exports = async callback => {
   } catch (e) {
     console.error('Failed to PUT contract configs');
     console.error(e);
+    callback(e);
     process.exit(1);
   }
 
+  // the script completes okay
   callback();
 
   async function putABI(artifact) {
