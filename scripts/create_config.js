@@ -1,5 +1,5 @@
 const Net = require('web3-net');
-const yaml = require('js-yaml')
+const yaml = require('js-yaml');
 const args = require('args-parser')(process.argv);
 const NectarToken = artifacts.require('NectarToken');
 const OfferRegistry = artifacts.require('OfferRegistry');
@@ -134,15 +134,19 @@ module.exports = async callback => {
     });
   }
 
+  console.log(options);
   async function deployTo(uri, name, options) {    
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
     ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
-    const nectarToken = await NectarToken.new();
-    const offerRegistry = await OfferRegistry.new(nectarToken.address);
-    const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION);
+    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.coinbase || web3.eth.accounts[0];
+    console.log(`Deploying contracts from: ${from}`);
+
+    const nectarToken = await NectarToken.new({ from: from });
+    const offerRegistry = await OfferRegistry.new(nectarToken.address, { from });
+    const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION, { from });
     
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();    
@@ -150,11 +154,11 @@ module.exports = async callback => {
     let erc20Relay;
 
     if (name == 'homechain') {
-      erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, FEE_WALLET, VERIFIER_ADDRESSES);
-      await nectarToken.mint(web3.eth.accounts[0], TOTAL_SUPPLY);
+      erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, FEE_WALLET, VERIFIER_ADDRESSES, { from });
+      await nectarToken.mint(from, TOTAL_SUPPLY, { from });
     } else if (name == 'sidechain') {
-      erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, VERIFIER_ADDRESSES);
-      await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY);
+      erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, VERIFIER_ADDRESSES, { from });
+      await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY, { from });
     }
 
     chainConfig.chain_id = chainId;
@@ -173,20 +177,20 @@ module.exports = async callback => {
 
     await web3.eth.accounts.forEach(async account => {
       console.log('Minting tokens for ', account);
-      await nectarToken.mint(account, web3.toWei(1000000000, 'ether'));
+      await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
     });
 
-    await nectarToken.enableTransfers();
+    await nectarToken.enableTransfers({ from });
 
     if (options && options.arbiters) {
       await Promise.all(options.arbiters
       .filter(arbiter => web3.isAddress(arbiter))
       .map(async arbiter => {
         console.log('Funding arbiter: '+ arbiter);
-          await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'));
+          await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'), { from });
           console.log('Adding arbiter: ' + arbiter);
           console.log(await web3.eth.blockNumber);
-          await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber);
+          await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber, { from });
       }));
     }
 
@@ -195,7 +199,7 @@ module.exports = async callback => {
       .filter(account => web3.isAddress(account))
       .map(async account => {
         console.log('Minting tokens for ', account);
-        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'));
+        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
       }));
     }
 
