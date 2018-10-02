@@ -50,7 +50,9 @@ module.exports = async callback => {
     config['require_api_key'] = 'false'
   }
 
-  let options = null
+  let options = null;
+  let consulBaseUrl = `${args.consul}/v1/kv/chain/${args['poly-sidechain-name']}`;
+
   if (args.options && fs.existsSync(args.options)) {
     try {
       options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
@@ -60,6 +62,23 @@ module.exports = async callback => {
       callback(e);
       process.exit(1);
     }
+  }
+  // todo check if consul chains exist here.
+  try{
+
+    await request({
+        headers,
+        method: 'GET',
+        url: `${consulBaseUrl}/config`
+    })
+    console.error("Found unexpected existing consul config, bailing.");
+
+    process.exit(1);
+
+  }catch (e) {
+      console.log("Didn't find consul config, proceeding.");
+      console.log(e);
+
   }
 
   if (args.home) {
@@ -101,7 +120,7 @@ module.exports = async callback => {
     await request({
       headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/${args['poly-sidechain-name']}/config`,
+      url: `${consulBaseUrl}/config`,
       json: config
     });
 
@@ -120,7 +139,7 @@ module.exports = async callback => {
     return await request({
       headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/${args['poly-sidechain-name']}/${contractName}`,
+      url: `${consulBaseUrl}/${contractName}`,
       json: { abi }
     });
   }
@@ -129,7 +148,7 @@ module.exports = async callback => {
     await request({
       headers,
       method: 'PUT',
-      url: `${args.consul}/v1/kv/${args['poly-sidechain-name']}/${name}`,
+      url: `${consulBaseUrl}/${name}`,
       json: config
     });
   }
