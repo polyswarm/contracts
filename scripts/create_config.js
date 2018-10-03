@@ -71,14 +71,13 @@ module.exports = async callback => {
         method: 'GET',
         url: `${consulBaseUrl}/config`
     })
-    console.error("Found unexpected existing consul config, bailing.");
+    console.error('Found unexpected existing consul config, bailing.');
 
     process.exit(1);
 
-  }catch (e) {
-      console.log("Didn't find consul config, proceeding.");
-      console.log(e);
-
+  } catch (e) {
+      console.log('Didn\'t find consul config, proceeding.');
+      console.log('Recieved status code error: ' + e.statusCodeError);
   }
 
   if (args.home) {
