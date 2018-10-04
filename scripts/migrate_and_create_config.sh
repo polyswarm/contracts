@@ -37,8 +37,12 @@ wait_for_min_gas_limit() {
 }
 
 check_for_existing_abi() {
-  curl --header $header -silent "$CONSUL/v1/kv/chain/$POLY_SIDECHAIN_NAME/NectarToken" | grep -vq Value
-  return $?
+  STATUSCODE=$(curl --header $header -silent --output /dev/stderr --write-out "%{http_code}" "$CONSUL/v1/kv/chain/$POLY_SIDECHAIN_NAME/$1")
+  if test $STATUSCODE -ne 200; then
+    echo "Curl detected no consul key"
+    return 1
+  fi
+  return 0
 }
 
 get_current_block() {
