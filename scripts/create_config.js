@@ -11,6 +11,7 @@ const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
 const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
+const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request
 const fs = require('fs');
 const request = require('request-promise');
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
@@ -52,7 +53,7 @@ module.exports = async callback => {
 
   let options = null;
   const consulUrl = new url.parse(args.consul);
-  const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, 19000);
+  const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
   const consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
   const configPath = 'config';
 

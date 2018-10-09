@@ -4,12 +4,15 @@ const Promise = require('bluebird');
 const spawn = require('child-process-promise').spawn;
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
 const url = require('url');
-const MIN_GAS = 6500000;
+const MIN_GAS = 6500000; // minimum gas needed on a block to deploy
+const RETRY_WAITING_TIME = 1000; // waiting time between retries
+const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request 
+
 rpc.connect = Promise.promisify(rpc.connect);
 rpc.raw = Promise.promisify(rpc.raw);
 
 if (!args.home || !args.side || !args.consul || !args['poly-sidechain-name']) {
-	console.log('Usage: truffle exec gethStatus.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
+	console.log('Usage: truffle exec safe_mirgrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
 	callback('missing args!!!');
 	process.exit(1);
 }
@@ -23,9 +26,9 @@ module.exports = async callback => {
 	callback();
 }
 
-async function checkGethDeployConditions(chain_url) {
+async function checkGethDeployConditions(chainUrl) {
 	const connectionConfiguration = {
-	  httpAddresses: [chain_url],
+	  httpAddresses: [chainUrl],
   	  errorHandler: function (err) { /* out-of-band error */ }, // optional, used for errors that can't be correlated back to a request
 	};
 
@@ -33,7 +36,7 @@ async function checkGethDeployConditions(chain_url) {
 		await rpc.connect(connectionConfiguration);
 	} catch (e) {
 		console.error(e);
-		callback(`Error connecting to geth for: ${chain_url}`);
+		callback(`Error connecting to geth for: ${chainUrl}`);
 		process.exit(1);
 	}
 
@@ -42,12 +45,12 @@ async function checkGethDeployConditions(chain_url) {
 
 		while (!wallets.every(d => d.status == 'Unlocked')) {
 			console.log('Not Unlocked yet, waiting ...');
-			await sleep(1000);
+			await sleep(RETRY_WAITING_TIME);
 			wallets = await rpc.raw("personal_listWallets", null);
 		}
 	} catch (e) {
 		console.error(e);
-		callback(`Error getting wallets for: ${chain_url}`);
+		callback(`Error getting wallets for: ${chainUrl}`);
 		process.exit(1);
 	}
 
@@ -59,13 +62,13 @@ async function checkGethDeployConditions(chain_url) {
 
 		while (gasLimit < MIN_GAS) {
 			console.log('Gas is too low to deploy contracts');
-			await sleep(1000);
+			await sleep(RETRY_WAITING_TIME);
 			latestBlock = await web3.eth.getBlock('latest');
 			gasLimit = latestBlock.gasLimit;
 		}
 	} catch (e) {
 		console.error(e);
-		callback(`Error checking gas limit for : ${chain_url}`);
+		callback(`Error checking gas limit for : ${chainUrl}`);
 		process.exit(1);
 	}
 
@@ -80,11 +83,11 @@ async function checkGethDeployConditions(chain_url) {
 			console.log('Waiting for blocks to advance...');
 			latestBlock = await web3.eth.getBlock('latest');
 			latestBlockNumber = latestBlock.number;
-			await sleep(1000);
+			await sleep(RETRY_WAITING_TIME);
 		}
 	} catch (e) {
 		console.error(e);
-		callback(`Error checking if blocks advancing : ${chain_url}`);
+		callback(`Error checking if blocks advancing : ${chainUrl}`);
 		process.exit(1);
 	}
 
@@ -93,7 +96,7 @@ async function checkGethDeployConditions(chain_url) {
 
 async function migrateIfMissingABI(consulConnectionURL) {
 	const consulUrl = new url.parse(consulConnectionURL);
-	const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, 3000);
+	const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
 	const paths = [ `/ArbiterStaking`,
 	  `/BountyRegistry`,
 	  `/ERC20Relay`,
