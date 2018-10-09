@@ -1,3 +1,4 @@
+const url = require('url');
 const Net = require('web3-net');
 const yaml = require('js-yaml');
 const args = require('args-parser')(process.argv);
@@ -8,7 +9,6 @@ const ArbiterStaking = artifacts.require('ArbiterStaking');
 const ERC20Relay = artifacts.require('ERC20Relay');
 const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
-
 const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
 const fs = require('fs');
@@ -37,7 +37,7 @@ module.exports = async callback => {
     console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
     callback('missing args!!!');
     process.exit(1);
-  }
+  }  
 
   if (args.ipfs) {
     config['ipfs_uri'] = args.ipfs
@@ -51,7 +51,10 @@ module.exports = async callback => {
   }
 
   let options = null;
-  let consulBaseUrl = `${args.consul}/v1/kv/chain/${args['poly-sidechain-name']}`;
+  const consulUrl = new url.parse(args.consul);
+  const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, 19000);
+  const consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
+  const configPath = 'config';
 
   if (args.options && fs.existsSync(args.options)) {
     try {
@@ -63,21 +66,27 @@ module.exports = async callback => {
       process.exit(1);
     }
   }
-  // todo check if consul chains exist here.
-  try{
+  let response;
 
-    await request({
-        headers,
-        method: 'GET',
-        url: `${consulBaseUrl}/config`
-    })
-    console.error('Found unexpected existing consul config, bailing.');
-
-    process.exit(1);
-
+  try {
+    response = await consul.kv.get(`${consulBaseUrl}/${configPath}`);
   } catch (e) {
+    console.log(e);
+    console.error(`Failed to connect to consul at ${consulBaseUrl}${configPath}`)
+    process.exit(1);
+  }
+
+  const [contractABI, resHeaders] = response;
+
+  if (resHeaders.statusCode == 200) {
+    console.error('Found unexpected existing consul config, bailing.');
+    process.exit(1);
+  } else if (resHeaders.statusCode == 500) {
+    console.error('There was an internal consul error, bailing.');
+    process.exit(1);
+  } else if (resHeaders.statusCode == 404) {
       console.log('Didn\'t find consul config, proceeding.');
-      console.log('Recieved status code error: ' + e.statusCodeError);
+      console.log('Recieved status code error: ' + resHeaders.statusCode);
   }
 
   if (args.home) {
@@ -107,49 +116,50 @@ module.exports = async callback => {
 
   console.log('New config created!');
 
-  try {
-    await putABI(NectarToken);
-    await putABI(OfferRegistry);
-    await putABI(BountyRegistry);
-    await putABI(ArbiterStaking);
-    await putABI(OfferLib);
-    await putABI(OfferMultiSig);
-    await putABI(ERC20Relay);
-
-    await request({
-      headers,
-      method: 'PUT',
-      url: `${consulBaseUrl}/config`,
-      json: config
-    });
-
-  } catch (e) {
-    console.error('Failed to PUT contract configs');
-    console.error(e);
-    callback(e);
-    process.exit(1);
-  }
-
+  await putABI(NectarToken);
+  await putABI(OfferRegistry);
+  await putABI(BountyRegistry);
+  await putABI(ArbiterStaking);
+  await putABI(OfferLib);
+  await putABI(OfferMultiSig);
+  await putABI(ERC20Relay);
+  await putChainConfig(configPath, config);
   // the script completes okay
   callback();
 
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
-    return await request({
-      headers,
-      method: 'PUT',
-      url: `${consulBaseUrl}/${contractName}`,
-      json: { abi }
-    });
+
+    return await putConsul(`${consulBaseUrl}/${contractName}`, abi, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
   }
 
   async function putChainConfig(name, config) {
-    await request({
-      headers,
-      method: 'PUT',
-      url: `${consulBaseUrl}/${name}`,
-      json: config
-    });
+    return await putConsul(`${consulBaseUrl}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseUrl}/${name}`);
+  }
+
+  async function putConsul(path, data, errorMessage) {
+    let response;
+
+    try {
+      response = await consul.kv.set(path, JSON.stringify(data));
+    } catch (e) {
+      console.error(errorMessage);
+      console.error(e);
+      callback(e);
+      process.exit(1);
+    }
+
+    const [success, resHeaders] = response;
+
+    if (success) {
+      return success;
+    } else {
+      console.error(errorMessage);
+      console.error(resHeaders);
+      callback(resHeaders);
+      process.exit(1);
+    }
+
   }
 
   console.log(options);
@@ -224,3 +234,19 @@ module.exports = async callback => {
     await putChainConfig(name, chainConfig);
   }
 };
+
+function fromCallback(fn) {
+  return new Promise(function(resolve, reject) {
+    try {
+      return fn(function(err, data, res) {
+        if (err) {
+          err.res = res;
+          return reject(err);
+        }
+        return resolve([data, res]);
+      });
+    } catch (err) {
+      return reject(err);
+    }
+  });
+}
