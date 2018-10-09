@@ -77,7 +77,7 @@ module.exports = async callback => {
     process.exit(1);
   }
 
-  const [contractABI, resHeaders] = response;
+  const [chainConfig, resHeaders] = response;
 
   if (resHeaders.statusCode == 200) {
     console.error('Found unexpected existing consul config, bailing.');
@@ -131,7 +131,7 @@ module.exports = async callback => {
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
 
-    return await putConsul(`${consulBaseUrl}/${contractName}`, abi, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
+    return await putConsul(`${consulBaseUrl}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
   }
 
   async function putChainConfig(name, config) {
