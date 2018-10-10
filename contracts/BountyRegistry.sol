@@ -65,6 +65,7 @@ contract BountyRegistry is Pausable {
         uint256 index,
         uint256 bid,
         uint256 mask,
+        uint256 numArtifacts,
         uint256 commitment
     );
 
@@ -74,12 +75,14 @@ contract BountyRegistry is Pausable {
         uint256 index,
         uint256 nonce,
         uint256 verdicts,
+        uint256 numArtifacts,
         string metadata
     );
 
     event NewVerdict(
         uint128 bountyGuid,
         uint256 verdicts,
+        uint256 numArtifacts,
         address voter
     );
 
@@ -284,6 +287,7 @@ contract BountyRegistry is Pausable {
         );
 
         uint256 index = assertionsByGuid[bountyGuid].push(a) - 1;
+        uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
 
         emit NewAssertion(
             bountyGuid,
@@ -291,6 +295,7 @@ contract BountyRegistry is Pausable {
             index,
             a.bid,
             a.mask,
+            numArtifacts,
             a.commitment
         );
     }
@@ -328,6 +333,9 @@ contract BountyRegistry is Pausable {
         require(bountiesByGuid[bountyGuid].expirationBlock <= block.number);
         // Check if the reveal round has closed
         require(bountiesByGuid[bountyGuid].expirationBlock.add(ASSERTION_REVEAL_WINDOW) > block.number);
+        // Get numArtifacts to help decode all zero verdicts
+        uint256 numArtifacts = bountiesByGuid[bountyGuid].numArtifacts;
+
         // Zero is defined as an invalid nonce
         require(nonce != 0);
 
@@ -355,6 +363,7 @@ contract BountyRegistry is Pausable {
             assertionId,
             a.nonce,
             a.verdicts,
+            numArtifacts,
             a.metadata
         );
     }
@@ -433,7 +442,7 @@ contract BountyRegistry is Pausable {
             emit QuorumReached(bountyGuid, block.number);
         }
 
-        emit NewVerdict(bountyGuid, verdicts, msg.sender);
+        emit NewVerdict(bountyGuid, verdicts, bounty.numArtifacts, msg.sender);
      }
 
     // This struct exists to move state from settleBounty into memory from stack
