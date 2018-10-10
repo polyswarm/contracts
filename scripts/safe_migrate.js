@@ -107,19 +107,19 @@ async function migrateIfMissingABI(consulConnectionURL) {
 	];
 	let missingABI = false;
 	let consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
-	let respone;
+	let response;
 
 	for (let path of paths) {
 
 		try {
-			respone = await consul.kv.get(`${consulBaseUrl}${path}`);
+			response = await consul.kv.get(`${consulBaseUrl}${path}`);
 		} catch (e) {
 			console.log(e);
 			console.error(`Failed to connect to consul at ${consulBaseUrl}${path}`)
 			process.exit(1);
 		}
 
-		const [contractABI, resHeaders] = respone;
+		const [contractABI, resHeaders] = response;
 
 		if (resHeaders.statusCode == 500) {
 			console.error('500 Error from consul!!');
