@@ -89,6 +89,7 @@ contract BountyRegistry is Pausable {
     );
 
     event BountySettled(
+        uint128 bountyGuid,
         uint256 block,
         address settler
     );
@@ -613,7 +614,7 @@ contract BountyRegistry is Pausable {
             token.safeTransfer(bounty.assignedArbiter, arbiterReward);
         }
 
-        emit BountySettled(block.number, msg.sender);
+        emit BountySettled(bountyGuid, block.number, msg.sender);
 
     }
 
