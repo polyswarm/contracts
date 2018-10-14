@@ -1,9 +1,13 @@
 #! /bin/bash
 
 truffle exec scripts/safe_migrate.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME
+migration_exit_code=$?
 
-if [ $? -eq 1 ]; then
+if [ $migration_exit_code -eq 1 ]; then
     exit 1
+elif [ $migration_exit_code -eq 2 ]; then
+	>&2 echo "Existing ABIs and config - skipping create_config.js"
+	exit 0
 fi
 
 if [ -z $DB ]; then

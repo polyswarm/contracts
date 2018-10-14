@@ -21,7 +21,7 @@ module.exports = async callback => {
 
 	await checkGethDeployConditions(args.home);
 	await checkGethDeployConditions(args.side);
-	await migrateIfMissingABI(args.consul);
+	await migrateIfMissingABIOrConfig(args.consul);
 
 	callback();
 }
@@ -94,7 +94,7 @@ async function checkGethDeployConditions(chainUrl) {
 	console.log('Blocks advancing okay...');
 }
 
-async function migrateIfMissingABI(consulConnectionURL) {
+async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 	const consulUrl = new url.parse(consulConnectionURL);
 	const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
 	const paths = [ `/ArbiterStaking`,
@@ -103,9 +103,10 @@ async function migrateIfMissingABI(consulConnectionURL) {
 	  `/NectarToken`,
 	  `/OfferLib`,
 	  `/OfferMultiSig`,
-	  `/OfferRegistry`
+	  `/OfferRegistry`,
+	  `/config`
 	];
-	let missingABI = false;
+	let missingABIOrConfig = false;
 	let consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
 	let response;
 
@@ -127,18 +128,18 @@ async function migrateIfMissingABI(consulConnectionURL) {
 		}
 
 		if (resHeaders.statusCode == 404) {
-			missingABI = true;
-			console.error('Missing abi for path: ' + path);
+			missingABIOrConfig = true;
+			console.error('Missing ABI of config for path: ' + path);
 			break;
 		}
 
 		if (resHeaders.statusCode == 200) {
-			console.log('Found ABI at: ' + path);
+			console.log('Found ABI or config at: ' + path);
 		}
 
 	}
 
-	if (missingABI) {
+	if (missingABIOrConfig) {
 		try {
 			const promise = spawn('truffle', ['migrate', '--reset']);
 			const childProcess = promise.childProcess;
@@ -156,6 +157,9 @@ async function migrateIfMissingABI(consulConnectionURL) {
 			console.error(e);
 			process.exit(1);
 		}
+	} else {
+		console.log('Already have config and ABIs');
+		process.exit(2);
 	}
 
 	return;
