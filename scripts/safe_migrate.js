@@ -6,7 +6,8 @@ const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSU
 const url = require('url');
 const MIN_GAS = 6500000; // minimum gas needed on a block to deploy
 const RETRY_WAITING_TIME = 1000; // waiting time between retries
-const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request 
+const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request in seconds
+const DEFAULT_TIMEOUT = 300000; // script timeout in milliseconds
 
 rpc.connect = Promise.promisify(rpc.connect);
 rpc.raw = Promise.promisify(rpc.raw);
@@ -18,6 +19,12 @@ if (!args.home || !args.side || !args.consul || !args['poly-sidechain-name']) {
 }
 
 module.exports = async callback => {
+	const timeout = typeof args.timeout === 'number' ? args.timeout : DEFAULT_TIMEOUT;
+
+	setTimeout(() => {
+		console.error(`Script timeout after ${timeout} milliseconds`);
+		process.exit(1);
+	}, timeout);
 
 	await checkGethDeployConditions(args.home);
 	await checkGethDeployConditions(args.side);
