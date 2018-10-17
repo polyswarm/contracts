@@ -61,28 +61,6 @@ module.exports = async callback => {
       process.exit(1);
     }
   }
-  let response;
-
-  try {
-    response = await consul.kv.get(`${consulBaseUrl}/${configPath}`);
-  } catch (e) {
-    console.log(e);
-    console.error(`Failed to connect to consul at ${consulBaseUrl}${configPath}`)
-    process.exit(1);
-  }
-
-  const [chainConfig, resHeaders] = response;
-
-  if (resHeaders.statusCode == 200) {
-    console.error('Found unexpected existing consul config, bailing.');
-    process.exit(1);
-  } else if (resHeaders.statusCode == 500) {
-    console.error('There was an internal consul error, bailing.');
-    process.exit(1);
-  } else if (resHeaders.statusCode == 404) {
-      console.log('Didn\'t find consul config, proceeding.');
-      console.log('Recieved status code error: ' + resHeaders.statusCode);
-  }
 
   if (args.home) {
     console.log('running for homechain')
