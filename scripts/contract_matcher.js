@@ -20,10 +20,10 @@ module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainN
 
 	const [chainConfig, resHeaders] = response;
 
-	if (resHeaders.statusCode == 500) {
-		console.error('There was an internal consul error, bailing.');
+	if (resHeaders.statusCode !== 200 && resHeaders.statusCode !== 404) {
+		console.error(`Recieved status code error: ${resHeaders.statusCode}, bailing.`);
 		process.exit(1);
-	} else if (resHeaders.statusCode == 404) {
+	} else if (resHeaders.statusCode === 404) {
 		console.log('Didn\'t find consul config, proceeding.');
 		console.log('Recieved status code error: ' + resHeaders.statusCode);
 		return true;
@@ -56,11 +56,11 @@ async function doesMatchExist(gethURL, contractName, contractAddress) {
 
 	try {
 		const flattened = await truffleFlattener([contractPath, ...contractToImportPaths]);
-    	const { match, msg } = await utils.compareBytecode(contractAddress, 'latest', flattened, contractName);
-    	console.log(`${contractName}:`);
-    	console.log(msg);
+		const { match, msg } = await utils.compareBytecode(contractAddress, 'latest', flattened, contractName);
+		console.log(`${contractName}:`);
+		console.log(msg);
 
-    	return match;
+		return match;
 	} catch (e) {
 		console.error('Error comparing bytecode');	
 		console.error(e);
