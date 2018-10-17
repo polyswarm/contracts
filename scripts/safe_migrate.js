@@ -4,6 +4,7 @@ const Promise = require('bluebird');
 const spawn = require('child-process-promise').spawn;
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
 const url = require('url');
+const contractDiffExists = require('./contract_matcher');
 const MIN_GAS = 6500000; // minimum gas needed on a block to deploy
 const RETRY_WAITING_TIME = 1000; // waiting time between retries
 const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request in seconds
@@ -12,13 +13,14 @@ const DEFAULT_TIMEOUT = 300000; // script timeout in milliseconds
 rpc.connect = Promise.promisify(rpc.connect);
 rpc.raw = Promise.promisify(rpc.raw);
 
-if (!args.home || !args.side || !args.consul || !args['poly-sidechain-name']) {
-	console.log('Usage: truffle exec safe_mirgrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
-	callback('missing args!!!');
-	process.exit(1);
-}
 
 module.exports = async callback => {
+	if (!args.home || !args.side || !args.consul || !args['poly-sidechain-name']) {
+		console.log('Usage: truffle exec safe_mirgrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
+		callback('missing args!!!');
+		process.exit(1);
+	}
+
 	const timeout = typeof args.timeout === 'number' ? args.timeout : DEFAULT_TIMEOUT;
 
 	setTimeout(() => {
@@ -101,6 +103,7 @@ async function checkGethDeployConditions(chainUrl) {
 	console.log('Blocks advancing okay...');
 }
 
+
 async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 	const consulUrl = new url.parse(consulConnectionURL);
 	const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
@@ -146,7 +149,9 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 
 	}
 
-	if (missingABIOrConfig) {
+	if (missingABIOrConfig 
+		|| await contractDiffExists(args.consul, args.home, 'homechain', args['poly-sidechain-name'], headers)
+		|| await contractDiffExists(args.consul, args.side, 'sidechain', args['poly-sidechain-name'], headers)) {
 		try {
 			const promise = spawn('truffle', ['migrate', '--reset']);
 			const childProcess = promise.childProcess;
@@ -165,7 +170,7 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 			process.exit(1);
 		}
 	} else {
-		console.log('Already have config and ABIs');
+		console.log('Already have config, ABIs, and no differnce in contracts found');
 		process.exit(2);
 	}
 
