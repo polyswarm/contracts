@@ -76,11 +76,11 @@ contract ArbiterStaking is Pausable {
         returns (bool)
     {
         // Ensure we are depositing something
-        require(_value > 0);
+        require(_value > 0, "Zero value being deposited");
         // Ensure we are called from he right token contract
-        require(_tokenContract == address(token));
+        require(_tokenContract == address(token), "Invalid token being deposited");
         // Ensure that we are not staking more than the maximum
-        require(balanceOf(_from).add(_value) <= MAXIMUM_STAKE);
+        require(balanceOf(_from).add(_value) <= MAXIMUM_STAKE, "Value greater than maximum stake");
 
         token.safeTransferFrom(_from, this, _value);
         deposits[_from].push(Deposit(block.number, _value));
@@ -95,7 +95,7 @@ contract ArbiterStaking is Pausable {
      * @param value The amount of NCT to deposit
      */
     function deposit(uint256 value) public whenNotPaused {
-        require(receiveApproval(msg.sender, value, token, new bytes(0)));
+        require(receiveApproval(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
     }
 
     /**
@@ -145,7 +145,7 @@ contract ArbiterStaking is Pausable {
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[msg.sender];
 
-        require(value <= withdrawableBalanceOf(msg.sender));
+        require(value <= withdrawableBalanceOf(msg.sender), "Value exceeds withdrawable balance");
 
         // Determine which deposits we will modifiy
         for (uint256 end = 0; end < ds.length; end++) {
@@ -167,7 +167,7 @@ contract ArbiterStaking is Pausable {
 
         // If we haven't hit our value by now, we don't have enough available
         // funds
-        require(remaining == 0);
+        require(remaining == 0, "Value exceeds withdrawable balance");
 
         // Delete the obsolete deposits
         for (uint256 i = 0; i < ds.length.sub(end); i++) {
@@ -206,8 +206,8 @@ contract ArbiterStaking is Pausable {
      * @param bountyGuid The guid of the bounty
      */
     function recordBounty(address arbiter, uint128 bountyGuid, uint256 blockNumber) public onlyOwner {
-        require(arbiter != address(0));
-        require(blockNumber != 0);
+        require(arbiter != address(0), "Invalid arbiter address");
+        require(blockNumber != 0, "Invalid block number");
 
         // New bounty
         if (!bounties[bountyGuid]) {
