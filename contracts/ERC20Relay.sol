@@ -62,8 +62,8 @@ contract ERC20Relay is Ownable {
     ERC20 private token;
 
     constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] _verifiers) public {
-        require(_token != address(0));
-        require(_verifiers.length >= MINIMUM_VERIFIERS);
+        require(_token != address(0), "Invalid token address");
+        require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
 
         // Dummy verifier at index 0
         verifiers.push(address(0));
@@ -75,7 +75,7 @@ contract ERC20Relay is Ownable {
 
         requiredVerifiers = calculateRequiredVerifiers();
 
-        nctEthExchangeRate= _nctEthExchangeRate;
+        nctEthExchangeRate = _nctEthExchangeRate;
         fees = calculateFees();
 
         token = ERC20(_token);
@@ -84,13 +84,13 @@ contract ERC20Relay is Ownable {
 
     /** Disable usage of the fallback function */
     function () external payable {
-        revert();
+        revert("Do not allow sending Eth to this contract");
     }
 
     // TODO: Allow existing verifiers to vote on adding/removing others
     function addVerifier(address addr) external onlyOwner {
-        require(addr != address(0));
-        require(verifierAddressToIndex[addr] == 0);
+        require(addr != address(0), "Invalid verifier address");
+        require(verifierAddressToIndex[addr] == 0, "Address is already a verifier");
 
         uint256 index = verifiers.push(addr);
         verifierAddressToIndex[addr] = index.sub(1);
@@ -101,12 +101,12 @@ contract ERC20Relay is Ownable {
 
     // TODO: Allow existing verifiers to vote on adding/removing others
     function removeVerifier(address addr) external onlyOwner {
-        require(addr != address(0));
-        require(verifierAddressToIndex[addr] != 0);
-        require(verifiers.length.sub(1) > MINIMUM_VERIFIERS);
+        require(addr != address(0), "Invalid verifier address");
+        require(verifierAddressToIndex[addr] != 0, "Address is not a verifier");
+        require(verifiers.length.sub(1) > MINIMUM_VERIFIERS, "Removing verifier would put number of verifiers below minimum");
 
         uint256 index = verifierAddressToIndex[addr];
-        require(verifiers[index] == addr);
+        require(verifiers[index] == addr, "Verifier address not present in verifiers array");
         verifiers[index] = verifiers[verifiers.length.sub(1)];
         delete verifierAddressToIndex[addr];
         verifiers.length--;
@@ -116,7 +116,7 @@ contract ERC20Relay is Ownable {
     }
 
     function activeVerifiers() public view returns (address[]) {
-        require(verifiers.length > 0);
+        require(verifiers.length > 0, "Invalid number of verifiers");
 
         address[] memory ret = new address[](verifiers.length.sub(1));
 
@@ -129,7 +129,7 @@ contract ERC20Relay is Ownable {
     }
 
     function numberOfVerifiers() public view returns (uint256) {
-        require(verifiers.length > 0);
+        require(verifiers.length > 0, "Invalid number of verifiers");
         return verifiers.length.sub(1);
     }
 
@@ -142,7 +142,7 @@ contract ERC20Relay is Ownable {
     }
 
     modifier onlyVerifier() {
-        require(isVerifier(msg.sender));
+        require(isVerifier(msg.sender), "msg.sender is not verifier");
         _;
     }
 
@@ -177,11 +177,11 @@ contract ERC20Relay is Ownable {
         }
 
         Withdrawal storage w = withdrawals[hash];
-        require(w.destination == destination);
-        require(w.amount == net);
+        require(w.destination == destination, "Destination mismatch");
+        require(w.amount == net, "Amount mismatch");
 
         for (uint256 i = 0; i < w.approvals.length; i++) {
-            require(w.approvals[i] != msg.sender);
+            require(w.approvals[i] != msg.sender, "Already approved withdrawal");
         }
 
         w.approvals.push(msg.sender);
@@ -209,10 +209,10 @@ contract ERC20Relay is Ownable {
         onlyVerifier
     {
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
-        require(withdrawals[hash].destination != address(0));
+        require(withdrawals[hash].destination != address(0), "No such withdrawal");
 
         Withdrawal storage w = withdrawals[hash];
-        require(!w.processed);
+        require(!w.processed, "Withdrawal already processed");
 
         uint256 length = w.approvals.length;
         for (uint256 i = 0; i < length; i++) {
@@ -226,6 +226,7 @@ contract ERC20Relay is Ownable {
     }
 
     function anchor(bytes32 blockHash, uint256 blockNumber) external onlyVerifier {
+        // solium-disable-next-line operator-whitespace
         if (anchors.length == 0 ||
             anchors[anchors.length.sub(1)].blockHash != blockHash ||
             anchors[anchors.length.sub(1)].blockNumber != blockNumber) {
@@ -236,11 +237,11 @@ contract ERC20Relay is Ownable {
         }
 
         Anchor storage a = anchors[anchors.length.sub(1)];
-        require(a.blockHash == blockHash);
-        require(a.blockNumber == blockNumber);
+        require(a.blockHash == blockHash, "Block hash mismatch");
+        require(a.blockNumber == blockNumber, "Block number mismatch");
 
         for (uint256 i = 0; i < a.approvals.length; i++) {
-            require(a.approvals[i] != msg.sender);
+            require(a.approvals[i] != msg.sender, "Already approved anchor block");
         }
 
         a.approvals.push(msg.sender);
@@ -252,7 +253,7 @@ contract ERC20Relay is Ownable {
 
     function unanchor() external onlyVerifier {
         Anchor storage a = anchors[anchors.length.sub(1)];
-        require(!a.processed);
+        require(!a.processed, "Block anchor already processed");
 
         uint256 length = a.approvals.length;
         for (uint256 i = 0; i < length; i++) {
