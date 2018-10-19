@@ -58,18 +58,18 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   it("deploy MultiSig less than 10 blocks or 90 days fails", async () => {
     let settlementPeriodLength = 10; // seconds
-
+    let revertLongMessage = `${revertMessage} Settlement period out of range`
     // TODO: Use EVMRevert helper
     try {
         await registry.initializeOfferChannel(guid, ambassador, expert, 1, { from: ambassador, gas: 5000000 });
     } catch (err) {
-        assert.equal(err.message, revertMessage, 'Did not revert channel deploy');
+        assert.equal(err.message, revertLongMessage, 'Did not revert channel deploy');
     }
 
     try {
         await registry.initializeOfferChannel(guid, ambassador, expert, 999999999, { from: ambassador, gas: 5000000 });
     } catch (err) {
-        assert.equal(err.message, revertMessage, 'Did not revert channel deploy');
+        assert.equal(err.message, revertLongMessage, 'Did not revert channel deploy');
     }
 
 
@@ -336,6 +336,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
   })
 
   it("should revert if already in settlement state", async () => {
+    let revertLongMessage = `${revertMessage} Offer is in settlement state`
     let errorMessage
     let r = s1sigA.substr(0,66)
     let s = "0x" + s1sigA.substr(66,64)
@@ -362,7 +363,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
       errorMessage = err.message;
     }
 
-    assert.equal(errorMessage, revertMessage, 'Did not revert the payment');
+    assert.equal(errorMessage, revertLongMessage, 'Did not revert the payment');
 
   })
 
@@ -403,6 +404,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     const sigS = []
 
     let errorMessage
+    let revertLongMessage = `${revertMessage} Settlement period hasn't ended`
 
     sigV.push(v)
     sigV.push(v2)
@@ -423,7 +425,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
       errorMessage = err.message;
     }
 
-    assert.equal(errorMessage, revertMessage, 'Did not revert the payment');
+    assert.equal(errorMessage, revertLongMessage, 'Did not revert the payment');
 
   })
 
@@ -446,7 +448,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     sigR.push(r2)
     sigS.push(s)
     sigS.push(s2)
-    
+
     await advanceToBlock(web3.eth.blockNumber + 10);
 
     await msig.closeAgreementWithTimeout(s2marshall, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
