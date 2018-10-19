@@ -88,8 +88,12 @@ if [ $? -eq 1 ]; then
     exit 1
 fi
 
+if [ -z $LOG_FORMAT ]; then
+  LOG_FORMAT='text'
+fi
+
 if [ -z $DB ]; then
-    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME --options=$OPTIONS
+    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME --log_format=$LOG_FORMAT --options=$OPTIONS
 else
-    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME --db=$DB --options=$OPTIONS
+    truffle exec scripts/create_config.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --ipfs=$IPFS --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME --db=$DB --log_format=$LOG_FORMAT --options=$OPTIONS
 fi
