@@ -23,20 +23,20 @@ module.exports = {
       host: process.env.geth || '0.0.0.0',
       port: process.env.port || 8545,
       network_id: '*',
-      gas: 6500000,
+      gas: 9400000,
       from,
     },
     rinkeby: {
       host: 'localhost',
       port: 8545,
       network_id: '4',
-      gas: 6500000,
+      gas: 9400000,
     },
     mainnet: {
       host: 'localhost',
       port: 8545,
       network_id: '1',
-      gas: 6500000,
+      gas: 9400000,
     },
   },
   solc: {

@@ -1,3 +1,4 @@
+const url = require('url');
 const Net = require('web3-net');
 const yaml = require('js-yaml');
 const args = require('args-parser')(process.argv);
@@ -9,9 +10,9 @@ const ArbiterStaking = artifacts.require('ArbiterStaking');
 const ERC20Relay = artifacts.require('ERC20Relay');
 const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
-
 const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
+const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request
 const fs = require('fs');
 const request = require('request-promise');
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
@@ -24,12 +25,6 @@ const NCT_ETH_EXCHANGE_RATE = 80972;
 
 // See docker setup
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-const FEE_WALLET = '0x0f57baedcf2c84383492d1ea700835ce2492c48a';
-const VERIFIER_ADDRESSES = [
-  '0xe6cc4b147e3b1b59d2ac2f2f3784bbac1774bbf7',
-  '0x28fad0751f8f406d962d27b60a2a47ccceeb8096',
-  '0x87cb0b17cf9ebcb0447da7da55c703812813524b'
-];
 logger.info(`Logging format: ${args.log_format || 'text'}`);
 
 
@@ -40,7 +35,7 @@ module.exports = async callback => {
     logger.info('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
     callback('missing args!!!');
     process.exit(1);
-  }
+  }  
 
   if (args.ipfs) {
     config['ipfs_uri'] = args.ipfs
@@ -54,7 +49,10 @@ module.exports = async callback => {
   }
 
   let options = null;
-  let consulBaseUrl = `${args.consul}/v1/kv/chain/${args['poly-sidechain-name']}`;
+  const consulUrl = new url.parse(args.consul);
+  const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
+  const consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
+  const configPath = 'config';
 
   if (args.options && fs.existsSync(args.options)) {
     try {
@@ -65,22 +63,6 @@ module.exports = async callback => {
       callback(e);
       process.exit(1);
     }
-  }
-  // TODO: check if consul chains exist here.
-  try{
-
-    await request({
-        headers,
-        method: 'GET',
-        url: `${consulBaseUrl}/config`
-    })
-    logger.error('Found unexpected existing consul config, bailing.');
-
-    process.exit(1);
-
-  } catch (e) {
-      logger.info('Didn\'t find consul config, proceeding.');
-      logger.info('Recieved status code error: ' + e.statusCodeError);
   }
 
   if (args.home) {
@@ -110,49 +92,50 @@ module.exports = async callback => {
 
   logger.info('New config created!');
 
-  try {
-    await putABI(NectarToken);
-    await putABI(OfferRegistry);
-    await putABI(BountyRegistry);
-    await putABI(ArbiterStaking);
-    await putABI(OfferLib);
-    await putABI(OfferMultiSig);
-    await putABI(ERC20Relay);
-
-    await request({
-      headers,
-      method: 'PUT',
-      url: `${consulBaseUrl}/config`,
-      json: config
-    });
-
-  } catch (e) {
-    logger.error('Failed to PUT contract configs');
-    logger.error(e);
-    callback(e);
-    process.exit(1);
-  }
-
+  await putABI(NectarToken);
+  await putABI(OfferRegistry);
+  await putABI(BountyRegistry);
+  await putABI(ArbiterStaking);
+  await putABI(OfferLib);
+  await putABI(OfferMultiSig);
+  await putABI(ERC20Relay);
+  await putChainConfig(configPath, config);
   // the script completes okay
   callback();
 
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
-    return await request({
-      headers,
-      method: 'PUT',
-      url: `${consulBaseUrl}/${contractName}`,
-      json: { abi }
-    });
+
+    return await putConsul(`${consulBaseUrl}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
   }
 
   async function putChainConfig(name, config) {
-    await request({
-      headers,
-      method: 'PUT',
-      url: `${consulBaseUrl}/${name}`,
-      json: config
-    });
+    return await putConsul(`${consulBaseUrl}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseUrl}/${name}`);
+  }
+
+  async function putConsul(path, data, errorMessage) {
+    let response;
+
+    try {
+      response = await consul.kv.set(path, JSON.stringify(data));
+    } catch (e) {
+      console.error(errorMessage);
+      console.error(e);
+      callback(e);
+      process.exit(1);
+    }
+
+    const [success, resHeaders] = response;
+
+    if (success) {
+      return success;
+    } else {
+      console.error(errorMessage);
+      console.error(resHeaders);
+      callback(resHeaders);
+      process.exit(1);
+    }
+
   }
 
   logger.info(options);
@@ -172,14 +155,19 @@ module.exports = async callback => {
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();    
     const chainConfig = {};
-    let erc20Relay;
 
-    if (name == 'homechain') {
-      erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, FEE_WALLET, VERIFIER_ADDRESSES, { from });
+    if (options.relay && name == 'homechain') {
+      let erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, options.relay.fee_wallet || ZERO_ADDRESS, options.relay.verifiers || [], { from });
+
       await nectarToken.mint(from, TOTAL_SUPPLY, { from });
-    } else if (name == 'sidechain') {
-      erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, VERIFIER_ADDRESSES, { from });
+      chainConfig.erc20_relay_address = erc20Relay.address;
+    } else if (options.relay && name == 'sidechain') {
+      let erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, options.relay.verifiers || [], { from });
+
       await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY, { from });
+      chainConfig.erc20_relay_address = erc20Relay.address;
+    } else {
+      chainConfig.erc20_relay_address = ZERO_ADDRESS;
     }
 
     chainConfig.chain_id = chainId;
@@ -187,7 +175,6 @@ module.exports = async callback => {
     chainConfig.nectar_token_address = nectarToken.address;
     chainConfig.bounty_registry_address = bountyRegistry.address;    
     chainConfig.offer_registry_address = offerRegistry.address;
-    chainConfig.erc20_relay_address = erc20Relay.address;
     
     if (options && options.free) {
       logger.info("Setting gasPrice to 0 (Free to use.)");
@@ -227,3 +214,19 @@ module.exports = async callback => {
     await putChainConfig(name, chainConfig);
   }
 };
+
+function fromCallback(fn) {
+  return new Promise(function(resolve, reject) {
+    try {
+      return fn(function(err, data, res) {
+        if (err) {
+          err.res = res;
+          return reject(err);
+        }
+        return resolve([data, res]);
+      });
+    } catch (err) {
+      return reject(err);
+    }
+  });
+}
