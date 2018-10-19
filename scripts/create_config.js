@@ -2,7 +2,6 @@ const url = require('url');
 const Net = require('web3-net');
 const yaml = require('js-yaml');
 const args = require('args-parser')(process.argv);
-const logger = require('./logger')(args.log_format);
 const NectarToken = artifacts.require('NectarToken');
 const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
@@ -16,6 +15,7 @@ const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request
 const fs = require('fs');
 const request = require('request-promise');
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
+const logger = require('./logger')(args.log_format);
 
 // https://etherscan.io/token/0x9e46a38f5daabe8683e10793b06749eef7d733d1#readContract totalSupply
 const TOTAL_SUPPLY = '1885913075851542181982426285';
@@ -25,7 +25,7 @@ const NCT_ETH_EXCHANGE_RATE = 80972;
 
 // See docker setup
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-logger.info(`Logging format: ${args.log_format == 'json' ? 'json' : 'text'}`);
+logger.info(`Logging format: ${logger.ps_log_type}`);
 
 
 module.exports = async callback => {
