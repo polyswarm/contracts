@@ -25,7 +25,7 @@ const NCT_ETH_EXCHANGE_RATE = 80972;
 
 // See docker setup
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
-logger.info(`Logging format: ${args.log_format || 'text'}`);
+logger.info(`Logging format: ${args.log_format == 'json' ? 'json' : 'text'}`);
 
 
 module.exports = async callback => {
