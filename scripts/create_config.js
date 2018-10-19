@@ -15,6 +15,7 @@ const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request
 const fs = require('fs');
 const request = require('request-promise');
 const headers = process.env.CONSUL_TOKEN ? { 'X-Consul-Token': process.env.CONSUL_TOKEN } : {};
+const logger = require('./logger')(args.log_format);
 
 // https://etherscan.io/token/0x9e46a38f5daabe8683e10793b06749eef7d733d1#readContract totalSupply
 const TOTAL_SUPPLY = '1885913075851542181982426285';
@@ -24,12 +25,14 @@ const NCT_ETH_EXCHANGE_RATE = 80972;
 
 // See docker setup
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+logger.info(`Logging format: ${logger.ps_log_type}`);
+
 
 module.exports = async callback => {
   const config = {};
 
   if (!args.home || !args.side || !args.ipfs || !args.consul || !args['poly-sidechain-name']) {
-    console.log('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
+    logger.info('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
     callback('missing args!!!');
     process.exit(1);
   }  
@@ -55,39 +58,39 @@ module.exports = async callback => {
     try {
       options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
     } catch (e) {
-      console.error('Failied reading options');
-      console.error(e);
+      logger.error('Failed reading options');
+      logger.error(e);
       callback(e);
       process.exit(1);
     }
   }
 
   if (args.home) {
-    console.log('running for homechain')
+    logger.info('running for homechain')
     try {
       await deployTo(args.home, 'homechain', options);
     } catch (e) {
-      console.error('Failied on homechain');
-      console.error(e);
+      logger.error('Failed on homechain');
+      logger.error(e);
       callback(e);
       process.exit(1);
     }
   }
 
   if (args.side) {
-    console.log('running for sidechain')
+    logger.info('running for sidechain')
     // Extra user accounts on the sidechain shouldn't be pre-funded. All funding should happen through a relay.
     try {
       await deployTo(args.side, 'sidechain', options);
     } catch (e) {
-      console.error('Failied on sidechain');
-      console.error(e);
+      logger.error('Failed on sidechain');
+      logger.error(e);
       callback(e);
       process.exit(1);
     }
   }
 
-  console.log('New config created!');
+  logger.info('New config created!');
 
   await putABI(NectarToken);
   await putABI(OfferRegistry);
@@ -135,7 +138,7 @@ module.exports = async callback => {
 
   }
 
-  console.log(options);
+  logger.info(options);
   async function deployTo(uri, name, options) {    
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
@@ -143,7 +146,7 @@ module.exports = async callback => {
     ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
     const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.coinbase || web3.eth.accounts[0];
-    console.log(`Deploying contracts from: ${from}`);
+    logger.info(`Deploying contracts from: ${from}`);
 
     const nectarToken = await NectarToken.new({ from: from });
     const offerRegistry = await OfferRegistry.new(nectarToken.address, { from });
@@ -174,14 +177,14 @@ module.exports = async callback => {
     chainConfig.offer_registry_address = offerRegistry.address;
     
     if (options && options.free) {
-      console.log("Setting gasPrice to 0 (Free to use.)");
+      logger.info("Setting gasPrice to 0 (Free to use.)");
       chainConfig.free = 'true';
     } else {
       chainConfig.free = 'false';
     }
 
     await web3.eth.accounts.forEach(async account => {
-      console.log('Minting tokens for ', account);
+      logger.info('Minting tokens for ' + account);
       await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
     });
 
@@ -191,10 +194,10 @@ module.exports = async callback => {
       await Promise.all(options.arbiters
       .filter(arbiter => web3.isAddress(arbiter))
       .map(async arbiter => {
-        console.log('Funding arbiter: '+ arbiter);
+        logger.info('Funding arbiter: '+ arbiter);
           await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'), { from });
-          console.log('Adding arbiter: ' + arbiter);
-          console.log(await web3.eth.blockNumber);
+          logger.info('Adding arbiter: ' + arbiter);
+          logger.info(await web3.eth.blockNumber);
           await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber, { from });
       }));
     }
@@ -203,7 +206,7 @@ module.exports = async callback => {
       await Promise.all(options.accounts
       .filter(account => web3.isAddress(account))
       .map(async account => {
-        console.log('Minting tokens for ', account);
+        logger.info('Minting tokens for ' + account);
         await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
       }));
     }
