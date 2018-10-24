@@ -24,7 +24,11 @@ kick-e2e:
         --form ref=master
         "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
 
-      # poll for it to finish
+      # run unit tests
+      - docker build -f docker/Dockerfile --cache-from polyswarm/contracts -t polyswarm/contracts .
+      - docker run polyswarm/contracts
+
+      # poll for e2e to finish
       - >-
         while [ -z $PIPELINE_STATUS ] || [ $PIPELINE_STATUS = "pending" ] || [ $PIPELINE_STATUS = "running" ]; do
           PIPELINE_STATUS=`curl \

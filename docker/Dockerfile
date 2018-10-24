@@ -19,4 +19,4 @@ RUN npm install
 
 COPY . .
 
-CMD ["./scripts/migrate_and_create_config.sh"]
+CMD ["./scripts/test_with_ganache.sh"]
