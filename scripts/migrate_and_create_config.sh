@@ -1,6 +1,9 @@
 #! /bin/bash
+if [ -z $LOG_FORMAT ]; then
+  LOG_FORMAT='text'
+fi
 
-truffle exec scripts/safe_migrate.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME --timeout=$TIMEOUT
+truffle exec scripts/safe_migrate.js --home=$HOME_CHAIN --side=$SIDE_CHAIN --consul=$CONSUL --poly-sidechain-name=$POLY_SIDECHAIN_NAME --log_format=$LOG_FORMAT --timeout=$TIMEOUT
 migration_exit_code=$?
 
 if [ $migration_exit_code -eq 1 ]; then
@@ -8,10 +11,6 @@ if [ $migration_exit_code -eq 1 ]; then
 elif [ $migration_exit_code -eq 2 ]; then
 	>&2 echo "Existing ABIs and config - skipping create_config.js"
 	exit 0
-fi
-
-if [ -z $LOG_FORMAT ]; then
-  LOG_FORMAT='text'
 fi
 
 if [ -z $DB ]; then

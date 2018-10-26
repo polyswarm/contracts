@@ -35,7 +35,7 @@ module.exports = async callback => {
     logger.info('Usage: truffle exec create_config.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --ipfs=<ipfs_url> --consul=<consul_url> --options=<options_path>');
     callback('missing args!!!');
     process.exit(1);
-  }  
+  }
 
   if (args.ipfs) {
     config['ipfs_uri'] = args.ipfs
@@ -58,8 +58,7 @@ module.exports = async callback => {
     try {
       options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
     } catch (e) {
-      logger.error('Failed reading options');
-      logger.error(e);
+      logger.error({"message": `Failed reading options. ${e.message}`, "stack": e.stack});
       callback(e);
       process.exit(1);
     }
@@ -70,8 +69,7 @@ module.exports = async callback => {
     try {
       await deployTo(args.home, 'homechain', options);
     } catch (e) {
-      logger.error('Failed on homechain');
-      logger.error(e);
+      logger.error({"message": `Failed on homechain. ${e.message}`, "stack": e.stack});
       callback(e);
       process.exit(1);
     }
@@ -83,8 +81,7 @@ module.exports = async callback => {
     try {
       await deployTo(args.side, 'sidechain', options);
     } catch (e) {
-      logger.error('Failed on sidechain');
-      logger.error(e);
+      logger.error({"message": `Failed on sidechain. ${e.message}`, "stack": e.stack});
       callback(e);
       process.exit(1);
     }
@@ -119,8 +116,7 @@ module.exports = async callback => {
     try {
       response = await consul.kv.set(path, JSON.stringify(data));
     } catch (e) {
-      console.error(errorMessage);
-      console.error(e);
+      logger.error({"message": `${errorMessage}. ${e.message}`, "stack": e.stack});
       callback(e);
       process.exit(1);
     }
@@ -130,8 +126,8 @@ module.exports = async callback => {
     if (success) {
       return success;
     } else {
-      console.error(errorMessage);
-      console.error(resHeaders);
+      logger.error(errorMessage);
+      logger.error(resHeaders);
       callback(resHeaders);
       process.exit(1);
     }

@@ -3,6 +3,8 @@ const fs = require('fs');
 const url = require('url');
 const path = require('path');
 const truffleFlattener = require('truffle-flattener');
+const args = require('args-parser')(process.argv);
+const logger = require('./logger')(args.log_format);
 
 module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainName, headers = {}) => {
 	const consulBaseUrl = `chain/${polySidechainName}`;
@@ -13,25 +15,24 @@ module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainN
 	try {
 		response = await consul.kv.get(`${consulBaseUrl}/${chainName}`);
 	} catch (e) {
-		console.log(e);
-		console.error(`Failed to connect to consul at ${consulBaseUrl}${configPath}`)
+        logger.error({"message": `Failed to connect to consul at ${consulBaseUrl}${configPath}. ${e.message}`, "stack": e.stack});
 		process.exit(1);
 	}
 
 	const [chainConfig, resHeaders] = response;
 
 	if (resHeaders.statusCode !== 200 && resHeaders.statusCode !== 404) {
-		console.error(`Recieved status code error: ${resHeaders.statusCode}, bailing.`);
+		logger.error(`Recieved status code error: ${resHeaders.statusCode}, bailing.`);
 		process.exit(1);
 	} else if (resHeaders.statusCode === 404) {
-		console.log('Didn\'t find consul config, proceeding.');
-		console.log('Recieved status code error: ' + resHeaders.statusCode);
+		logger.info('Didn\'t find consul config, proceeding.');
+		logger.info('Recieved status code error: ' + resHeaders.statusCode);
 		return true;
 	}
 
 	const config = JSON.parse(chainConfig.Value);
 
-	console.log(`Checking for difference in contracts on ${chainName}`);
+	logger.info(`Checking for difference in contracts on ${chainName}`);
 
 	let results = await Promise.all([doesMatchExist(chainUrl, 'NectarToken', config.nectar_token_address),
 		doesMatchExist(chainUrl, 'BountyRegistry', config.bounty_registry_address),
@@ -40,11 +41,11 @@ module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainN
 	]);
 
 	if (results.some(isMatchingBytecode => !isMatchingBytecode)) {
-		console.log(`Contract difference found in bytecode on ${chainName}`);
+		logger.info(`Contract difference found in bytecode on ${chainName}`);
 		return true;
 	}
 
-	console.log(`No difference in contracts on ${chainName}`);
+	logger.info(`No difference in contracts on ${chainName}`);
 	return false;
 }
 
@@ -57,13 +58,11 @@ async function doesMatchExist(gethURL, contractName, contractAddress) {
 	try {
 		const flattened = await truffleFlattener([contractPath, ...contractToImportPaths]);
 		const { match, msg } = await utils.compareBytecode(contractAddress, 'latest', flattened, contractName);
-		console.log(`${contractName}:`);
-		console.log(msg);
+		logger.info(`${contractName}: ${msg}`);
 
 		return match;
 	} catch (e) {
-		console.error('Error comparing bytecode');	
-		console.error(e);
+        logger.error({"message": `Error comparing bytecode. ${e.message}`, "stack": e.stack});
 		process.exit(1);
 	}
 }
