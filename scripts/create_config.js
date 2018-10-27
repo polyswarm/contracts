@@ -67,8 +67,7 @@ module.exports = async callback => {
   if (args.home) {
     logger.info('running for homechain')
     try {
-      // await deployTo(args.home, 'homechain', options);
-      throw Error("TREVOR LOOK");
+      await deployTo(args.home, 'homechain', options);
     } catch (e) {
       logger.error({ message: `Failed on homechain. ${e.message}`, stack: e.stack });
       callback(e);
