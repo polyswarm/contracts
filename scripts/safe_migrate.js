@@ -9,6 +9,7 @@ const MIN_GAS = 6500000; // minimum gas needed on a block to deploy
 const RETRY_WAITING_TIME = 1000; // waiting time between retries
 const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request in seconds
 const DEFAULT_TIMEOUT = 300000; // script timeout in milliseconds
+const logger = require('./logger')(args.log_format);
 
 rpc.connect = Promise.promisify(rpc.connect);
 rpc.raw = Promise.promisify(rpc.raw);
@@ -16,7 +17,7 @@ rpc.raw = Promise.promisify(rpc.raw);
 
 module.exports = async callback => {
 	if (!args.home || !args.side || !args.consul || !args['poly-sidechain-name']) {
-		console.log('Usage: truffle exec safe_mirgrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
+		logger.info('Usage: truffle exec safe_mirgrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
 		callback('missing args!!!');
 		process.exit(1);
 	}
@@ -24,7 +25,7 @@ module.exports = async callback => {
 	const timeout = typeof args.timeout === 'number' ? args.timeout : DEFAULT_TIMEOUT;
 
 	setTimeout(() => {
-		console.error(`Script timeout after ${timeout} milliseconds`);
+		logger.error(`Script timeout after ${timeout} milliseconds`);
 		process.exit(1);
 	}, timeout);
 
@@ -44,7 +45,7 @@ async function checkGethDeployConditions(chainUrl) {
 	try {
 		await rpc.connect(connectionConfiguration);
 	} catch (e) {
-		console.error(e);
+		logger.error({ message: `Error connecting to geth for: ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error connecting to geth for: ${chainUrl}`);
 		process.exit(1);
 	}
@@ -53,35 +54,35 @@ async function checkGethDeployConditions(chainUrl) {
 		let wallets = await rpc.raw('personal_listWallets', null);
 
 		while (!wallets.every(d => d.status == 'Unlocked')) {
-			console.log('Not Unlocked yet, waiting ...');
+			logger.info('Not Unlocked yet, waiting ...');
 			await sleep(RETRY_WAITING_TIME);
 			wallets = await rpc.raw("personal_listWallets", null);
 		}
 	} catch (e) {
-		console.error(e);
+		logger.error({ message: `Error getting wallets for: ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error getting wallets for: ${chainUrl}`);
 		process.exit(1);
 	}
 
-	console.log('Accounts successfully unlocked...');
+	logger.info('Accounts successfully unlocked...');
 
 	try {
 		let latestBlock = await web3.eth.getBlock('latest');
 		let { gasLimit } = latestBlock;
 
 		while (gasLimit < MIN_GAS) {
-			console.log('Gas is too low to deploy contracts');
+			logger.info('Gas is too low to deploy contracts');
 			await sleep(RETRY_WAITING_TIME);
 			latestBlock = await web3.eth.getBlock('latest');
 			gasLimit = latestBlock.gasLimit;
 		}
 	} catch (e) {
-		console.error(e);
+		logger.error({ message: `Error checking gas limit for : ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error checking gas limit for : ${chainUrl}`);
 		process.exit(1);
 	}
 
-	console.log('Gas is high enough to deploy contracts...');
+	logger.info('Gas is high enough to deploy contracts...');
 
 	try {
 		let latestBlock = await web3.eth.getBlock('latest');
@@ -89,18 +90,18 @@ async function checkGethDeployConditions(chainUrl) {
 		let latestBlockNumber = oldBlockNumber;
 
 		while (latestBlockNumber == oldBlockNumber) {
-			console.log('Waiting for blocks to advance...');
+			logger.info('Waiting for blocks to advance...');
 			latestBlock = await web3.eth.getBlock('latest');
 			latestBlockNumber = latestBlock.number;
 			await sleep(RETRY_WAITING_TIME);
 		}
 	} catch (e) {
-		console.error(e);
-		callback(`Error checking if blocks advancing : ${chainUrl}`);
+		logger.error({ message: `Error checking if blocks advancing: ${chainUrl}. ${e.message}`, stack: e.stack });
+		callback(`Error checking if blocks advancing: ${chainUrl}`);
 		process.exit(1);
 	}
 
-	console.log('Blocks advancing okay...');
+	logger.info('Blocks advancing okay...');
 }
 
 
@@ -125,26 +126,25 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 		try {
 			response = await consul.kv.get(`${consulBaseUrl}${path}`);
 		} catch (e) {
-			console.log(e);
-			console.error(`Failed to connect to consul at ${consulBaseUrl}${path}`)
+			logger.error({ message: `Failed to connect to consul at ${consulBaseUrl}${path}. ${e.message}`, stack: e.stack });
 			process.exit(1);
 		}
 
 		const [contractABI, resHeaders] = response;
 
 		if (resHeaders.statusCode == 500) {
-			console.error('500 Error from consul!!');
+			logger.error('500 Error from consul!!');
 			process.exit(1);
 		}
 
 		if (resHeaders.statusCode == 404) {
 			missingABIOrConfig = true;
-			console.error('Missing ABI of config for path: ' + path);
+			logger.error('Missing ABI of config for path: ' + path);
 			break;
 		}
 
 		if (resHeaders.statusCode == 200) {
-			console.log('Found ABI or config at: ' + path);
+			logger.info('Found ABI or config at: ' + path);
 		}
 
 	}
@@ -157,20 +157,19 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 			const childProcess = promise.childProcess;
 			 
 			childProcess.stdout.on('data', function (data) {
-			    console.log(data.toString());
+			    logger.info(data.toString());
 			});
 			childProcess.stderr.on('data', function (data) {
-			    console.log(data.toString());
+			    logger.info(data.toString());
 			});
 
 			await promise;
 		} catch (e) {
-			console.error('error in truffle migrate!');
-			console.error(e);
+			logger.error({ message: `Error in truffle migrate!. ${e.message}`, stack: e.stack });
 			process.exit(1);
 		}
 	} else {
-		console.log('Already have config, ABIs, and no differnce in contracts found');
+		logger.info('Already have config, ABIs, and no differnce in contracts found.');
 		process.exit(2);
 	}
 
