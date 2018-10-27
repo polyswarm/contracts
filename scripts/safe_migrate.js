@@ -45,7 +45,7 @@ async function checkGethDeployConditions(chainUrl) {
 	try {
 		await rpc.connect(connectionConfiguration);
 	} catch (e) {
-		logger.error({"message": `Error connecting to geth for: ${chainUrl}. ${e.message}`, "stack": e.stack});
+		logger.error({ message: `Error connecting to geth for: ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error connecting to geth for: ${chainUrl}`);
 		process.exit(1);
 	}
@@ -59,7 +59,7 @@ async function checkGethDeployConditions(chainUrl) {
 			wallets = await rpc.raw("personal_listWallets", null);
 		}
 	} catch (e) {
-		logger.error({"message": `Error getting wallets for: ${chainUrl}. ${e.message}`, "stack": e.stack});
+		logger.error({ message: `Error getting wallets for: ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error getting wallets for: ${chainUrl}`);
 		process.exit(1);
 	}
@@ -77,7 +77,7 @@ async function checkGethDeployConditions(chainUrl) {
 			gasLimit = latestBlock.gasLimit;
 		}
 	} catch (e) {
-		logger.error({"message": `Error checking gas limit for : ${chainUrl}. ${e.message}`, "stack": e.stack});
+		logger.error({ message: `Error checking gas limit for : ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error checking gas limit for : ${chainUrl}`);
 		process.exit(1);
 	}
@@ -96,7 +96,7 @@ async function checkGethDeployConditions(chainUrl) {
 			await sleep(RETRY_WAITING_TIME);
 		}
 	} catch (e) {
-		logger.error({"message": `Error checking if blocks advancing: ${chainUrl}. ${e.message}`, "stack": e.stack});
+		logger.error({ message: `Error checking if blocks advancing: ${chainUrl}. ${e.message}`, stack: e.stack });
 		callback(`Error checking if blocks advancing: ${chainUrl}`);
 		process.exit(1);
 	}
@@ -126,7 +126,7 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 		try {
 			response = await consul.kv.get(`${consulBaseUrl}${path}`);
 		} catch (e) {
-			logger.error({"message": `Failed to connect to consul at ${consulBaseUrl}${path}. ${e.message}`, "stack": e.stack});
+			logger.error({ message: `Failed to connect to consul at ${consulBaseUrl}${path}. ${e.message}`, stack: e.stack });
 			process.exit(1);
 		}
 
@@ -165,7 +165,7 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 
 			await promise;
 		} catch (e) {
-			logger.error({"message": `Error in truffle migrate!. ${e.message}`, "stack": e.stack});
+			logger.error({ message: `Error in truffle migrate!. ${e.message}`, stack: e.stack });
 			process.exit(1);
 		}
 	} else {

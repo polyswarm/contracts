@@ -15,7 +15,7 @@ module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainN
 	try {
 		response = await consul.kv.get(`${consulBaseUrl}/${chainName}`);
 	} catch (e) {
-        logger.error({"message": `Failed to connect to consul at ${consulBaseUrl}${configPath}. ${e.message}`, "stack": e.stack});
+        logger.error({ message: `Failed to connect to consul at ${consulBaseUrl}${configPath}. ${e.message}`, stack: e.stack });
 		process.exit(1);
 	}
 
@@ -62,7 +62,7 @@ async function doesMatchExist(gethURL, contractName, contractAddress) {
 
 		return match;
 	} catch (e) {
-        logger.error({"message": `Error comparing bytecode. ${e.message}`, "stack": e.stack});
+        logger.error({ message: `Error comparing bytecode. ${e.message}`, stack: e.stack });
 		process.exit(1);
 	}
 }

@@ -58,7 +58,7 @@ module.exports = async callback => {
     try {
       options = yaml.safeLoad(fs.readFileSync(args.options, 'utf-8'));
     } catch (e) {
-      logger.error({"message": `Failed reading options. ${e.message}`, "stack": e.stack});
+      logger.error({ message: `Failed reading options. ${e.message}`, stack: e.stack });
       callback(e);
       process.exit(1);
     }
@@ -67,9 +67,10 @@ module.exports = async callback => {
   if (args.home) {
     logger.info('running for homechain')
     try {
-      await deployTo(args.home, 'homechain', options);
+      // await deployTo(args.home, 'homechain', options);
+      throw Error("TREVOR LOOK");
     } catch (e) {
-      logger.error({"message": `Failed on homechain. ${e.message}`, "stack": e.stack});
+      logger.error({ message: `Failed on homechain. ${e.message}`, stack: e.stack });
       callback(e);
       process.exit(1);
     }
@@ -81,7 +82,7 @@ module.exports = async callback => {
     try {
       await deployTo(args.side, 'sidechain', options);
     } catch (e) {
-      logger.error({"message": `Failed on sidechain. ${e.message}`, "stack": e.stack});
+      logger.error({ message: `Failed on sidechain. ${e.message}`, stack: e.stack });
       callback(e);
       process.exit(1);
     }
@@ -116,7 +117,7 @@ module.exports = async callback => {
     try {
       response = await consul.kv.set(path, JSON.stringify(data));
     } catch (e) {
-      logger.error({"message": `${errorMessage}. ${e.message}`, "stack": e.stack});
+      logger.error({ message: `${errorMessage}. ${e.message}`, stack: e.stack });
       callback(e);
       process.exit(1);
     }
