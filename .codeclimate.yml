@@ -29,6 +29,5 @@ engines:
 #    enabled: true
 #  git-legal:  # discount lawyering
 #    enabled: true
-plugins: 
   eslint:
     enabled: true
