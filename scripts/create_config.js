@@ -9,7 +9,7 @@ const ArbiterStaking = artifacts.require('ArbiterStaking');
 const ERC20Relay = artifacts.require('ERC20Relay');
 const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
-const ARBITER_VOTE_WINDOW = 100;
+const ARBITER_VOTE_WINDOW = process.env.POLY_WORK === 'prod' ? 1200 : 100;
 const STAKE_DURATION = 100;
 const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request
 const fs = require('fs');
