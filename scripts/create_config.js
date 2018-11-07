@@ -135,7 +135,7 @@ module.exports = async callback => {
   }
 
   logger.info(options);
-  async function deployTo(uri, name, options) {    
+  async function deployTo(uri, name, options) {
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
@@ -147,9 +147,9 @@ module.exports = async callback => {
     const nectarToken = await NectarToken.new({ from: from });
     const offerRegistry = await OfferRegistry.new(nectarToken.address, { from });
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION, { from });
-    
+
     const net = new Net(new web3.providers.HttpProvider(uri));
-    const chainId = await net.getId();    
+    const chainId = await net.getId();
     const chainConfig = {};
 
     if (options.relay && name == 'homechain') {
@@ -167,11 +167,11 @@ module.exports = async callback => {
     }
 
     chainConfig.chain_id = chainId;
-    chainConfig.eth_uri = uri;    
+    chainConfig.eth_uri = uri;
     chainConfig.nectar_token_address = nectarToken.address;
-    chainConfig.bounty_registry_address = bountyRegistry.address;    
+    chainConfig.bounty_registry_address = bountyRegistry.address;
     chainConfig.offer_registry_address = offerRegistry.address;
-    
+
     if (options && options.free) {
       logger.info("Setting gasPrice to 0 (Free to use.)");
       chainConfig.free = 'true';
@@ -179,31 +179,35 @@ module.exports = async callback => {
       chainConfig.free = 'false';
     }
 
-    await web3.eth.accounts.forEach(async account => {
-      logger.info('Minting tokens for ' + account);
-      await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
-    });
-
     await nectarToken.enableTransfers({ from });
+
+    if (name == 'homechain') {
+      await web3.eth.accounts.forEach(async account => {
+        logger.info('Minting tokens for ' + account);
+        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+      });
+
+      if (options && options.accounts) {
+        await Promise.all(options.accounts
+        .filter(account => web3.isAddress(account))
+        .map(async account => {
+          logger.info('Minting tokens for ' + account);
+          await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+        }));
+      }
+    }
 
     if (options && options.arbiters) {
       await Promise.all(options.arbiters
       .filter(arbiter => web3.isAddress(arbiter))
       .map(async arbiter => {
-        logger.info('Funding arbiter: '+ arbiter);
-          await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'), { from });
+          if (name == 'homechain') {
+            logger.info('Funding arbiter: '+ arbiter);
+            await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'), { from });
+          }
           logger.info('Adding arbiter: ' + arbiter);
           logger.info(await web3.eth.blockNumber);
           await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber, { from });
-      }));
-    }
-
-    if (options && options.accounts) {
-      await Promise.all(options.accounts
-      .filter(account => web3.isAddress(account))
-      .map(async account => {
-        logger.info('Minting tokens for ' + account);
-        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
       }));
     }
 
