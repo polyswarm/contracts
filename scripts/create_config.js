@@ -148,7 +148,7 @@ module.exports = async callback => {
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
     ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
-    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.coinbase || web3.eth.accounts[0];
+    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.accounts[0];
     logger.info(`Deploying contracts from: ${from}`);
 
     const nectarToken = await NectarToken.new({ from: from });
