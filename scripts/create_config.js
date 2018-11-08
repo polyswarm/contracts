@@ -51,7 +51,14 @@ module.exports = async callback => {
   let options = null;
   const consulUrl = new url.parse(args.consul);
   const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
-  const consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
+  const consulBaseKey = `chain/${args['poly-sidechain-name']}`;
+
+  try {
+    let response = await consul.kv.del({key: consulBaseKey, recurse: true});
+  } catch (e) {
+    logger.error({ message: `Failed deleting key, assuming it doesn't exist. ${e.message}`, stack: e.stack });
+  }
+
   const configPath = 'config';
 
   if (args.options && fs.existsSync(args.options)) {
@@ -103,11 +110,11 @@ module.exports = async callback => {
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
 
-    return await putConsul(`${consulBaseUrl}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
+    return await putConsul(`${consulBaseKey}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseKey}/${contractName}`);
   }
 
   async function putChainConfig(name, config) {
-    return await putConsul(`${consulBaseUrl}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseUrl}/${name}`);
+    return await putConsul(`${consulBaseKey}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseKey}/${name}`);
   }
 
   async function putConsul(path, data, errorMessage) {
