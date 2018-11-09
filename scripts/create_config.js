@@ -159,12 +159,12 @@ module.exports = async callback => {
     const chainId = await net.getId();
     const chainConfig = {};
 
-    if (options.relay && name == 'homechain') {
+    if (options && options.relay && name == 'homechain') {
       let erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, options.relay.fee_wallet || ZERO_ADDRESS, options.relay.verifiers || [], { from });
 
       await nectarToken.mint(from, TOTAL_SUPPLY, { from });
       chainConfig.erc20_relay_address = erc20Relay.address;
-    } else if (options.relay && name == 'sidechain') {
+    } else if (options && options.relay && name == 'sidechain') {
       let erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, options.relay.verifiers || [], { from });
 
       await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY, { from });
@@ -179,7 +179,7 @@ module.exports = async callback => {
     chainConfig.bounty_registry_address = bountyRegistry.address;
     chainConfig.offer_registry_address = offerRegistry.address;
 
-    if (options && options.free) {
+    if (options && ((name == 'homechain' && options.homechain_free) || (name == 'sidechain' && options.sidechain_free))) {
       logger.info("Setting gasPrice to 0 (Free to use.)");
       chainConfig.free = 'true';
     } else {
