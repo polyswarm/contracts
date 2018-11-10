@@ -181,9 +181,9 @@ module.exports = async callback => {
 
     if (options && ((name == 'homechain' && options.homechain_free) || (name == 'sidechain' && options.sidechain_free))) {
       logger.info("Setting gasPrice to 0 (Free to use.)");
-      chainConfig.free = 'true';
+      chainConfig.free = true;
     } else {
-      chainConfig.free = 'false';
+      chainConfig.free = false;
     }
 
     await nectarToken.enableTransfers({ from });

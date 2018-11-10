@@ -24,14 +24,14 @@ module.exports = {
       port: process.env.port || 8545,
       network_id: '*',
       // Need to lower this until contracts#74 is resolved
-      gas: 7400000,
+      gas: 7000000,
       from,
     },
     rinkeby: {
       host: 'localhost',
       port: 8545,
       network_id: '4',
-      gas: 7400000,
+      gas: 7000000,
     },
     mainnet: {
       host: 'localhost',
