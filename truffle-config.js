@@ -25,6 +25,7 @@ module.exports = {
       network_id: '*',
       // Need to lower this until contracts#74 is resolved
       gas: 7000000,
+      gasPrice: 20000000000,
       from,
     },
     rinkeby: {
