@@ -51,7 +51,14 @@ module.exports = async callback => {
   let options = null;
   const consulUrl = new url.parse(args.consul);
   const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
-  const consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
+  const consulBaseKey = `chain/${args['poly-sidechain-name']}`;
+
+  try {
+    let response = await consul.kv.del({key: consulBaseKey, recurse: true});
+  } catch (e) {
+    logger.error({ message: `Failed deleting key, assuming it doesn't exist. ${e.message}`, stack: e.stack });
+  }
+
   const configPath = 'config';
 
   if (args.options && fs.existsSync(args.options)) {
@@ -103,11 +110,11 @@ module.exports = async callback => {
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
 
-    return await putConsul(`${consulBaseUrl}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
+    return await putConsul(`${consulBaseKey}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseKey}/${contractName}`);
   }
 
   async function putChainConfig(name, config) {
-    return await putConsul(`${consulBaseUrl}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseUrl}/${name}`);
+    return await putConsul(`${consulBaseKey}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseKey}/${name}`);
   }
 
   async function putConsul(path, data, errorMessage) {
@@ -141,7 +148,7 @@ module.exports = async callback => {
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
     ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
-    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.coinbase || web3.eth.accounts[0];
+    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.accounts[0];
     logger.info(`Deploying contracts from: ${from}`);
 
     const nectarToken = await NectarToken.new({ from: from });
@@ -152,12 +159,12 @@ module.exports = async callback => {
     const chainId = await net.getId();
     const chainConfig = {};
 
-    if (options.relay && name == 'homechain') {
+    if (options && options.relay && name == 'homechain') {
       let erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, options.relay.fee_wallet || ZERO_ADDRESS, options.relay.verifiers || [], { from });
 
       await nectarToken.mint(from, TOTAL_SUPPLY, { from });
       chainConfig.erc20_relay_address = erc20Relay.address;
-    } else if (options.relay && name == 'sidechain') {
+    } else if (options && options.relay && name == 'sidechain') {
       let erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, options.relay.verifiers || [], { from });
 
       await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY, { from });
@@ -172,11 +179,11 @@ module.exports = async callback => {
     chainConfig.bounty_registry_address = bountyRegistry.address;
     chainConfig.offer_registry_address = offerRegistry.address;
 
-    if (options && options.free) {
+    if (options && ((name == 'homechain' && options.homechain_free) || (name == 'sidechain' && options.sidechain_free))) {
       logger.info("Setting gasPrice to 0 (Free to use.)");
-      chainConfig.free = 'true';
+      chainConfig.free = true;
     } else {
-      chainConfig.free = 'false';
+      chainConfig.free = false;
     }
 
     await nectarToken.enableTransfers({ from });
