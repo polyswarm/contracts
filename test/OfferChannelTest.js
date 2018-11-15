@@ -271,7 +271,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     sigS.push(s)
     sigS.push(s2)
 
-    await msig.depositState(depositState, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
+    await msig.depositFunds(depositState, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
     let newBal = await nectar.balanceOf(msig.address);
 
     assert.equal(newBal.toNumber(), 200);
@@ -284,7 +284,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     const offerState = []
     offerState.push(0) // is close
     offerState.push(3) // sequence
-    offerState.push(ambassador) // ambassador address
+    offerState.push(ambassador) // ambassad or address
     offerState.push(expert) // expert address
     offerState.push(msig.address) //  msig address
     offerState.push(200) // balance in nectar ambassador

@@ -3,7 +3,6 @@ pragma solidity ^0.4.23;
 import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
 import "./OfferMultiSig.sol";
-import "./OfferLib.sol";
 
 /// @title Creates new Offer Channel contracts and keeps track of them
 contract OfferRegistry is Pausable {

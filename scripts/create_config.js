@@ -7,7 +7,6 @@ const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
 const ERC20Relay = artifacts.require('ERC20Relay');
-const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
 const ARBITER_VOTE_WINDOW = process.env.POLY_WORK === 'prod' ? 1200 : 100;
 const STAKE_DURATION = 100;
@@ -100,7 +99,6 @@ module.exports = async callback => {
   await putABI(OfferRegistry);
   await putABI(BountyRegistry);
   await putABI(ArbiterStaking);
-  await putABI(OfferLib);
   await putABI(OfferMultiSig);
   await putABI(ERC20Relay);
   await putChainConfig(configPath, config);

@@ -13,7 +13,6 @@ let offerArray
 let offerStateBytes
 let ambassador
 let expert
-let offerLib
 let offerState = []
 let offerChannelID
 let artifactHash

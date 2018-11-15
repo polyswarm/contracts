@@ -54,7 +54,6 @@ contract OfferMultiSig is Pausable {
     address public nectarAddress; // Address of offer nectar token
     address public ambassador; // Address of first channel participant
     address public expert; // Address of second channel participant
-    address public offerLib;
     
     bool public isOpen = false; // true when both parties have joined
     bool public isPending = false; // true when waiting for counterparty to join agreement
@@ -190,7 +189,7 @@ contract OfferMultiSig is Pausable {
 
     /**
      * Function called by ambassador or expert to close a their channel after a dispute has timedout
-     *offerLib
+     *
      * @param _state final offer state agreed on by both parties through dispute settlement
      * @param _sigV the recovery id from signature of state by both parties
      * @param _sigR output of ECDSA signature  of state by both parties

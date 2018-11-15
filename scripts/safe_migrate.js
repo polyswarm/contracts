@@ -112,7 +112,6 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
     `/BountyRegistry`,
     `/ERC20Relay`,
     `/NectarToken`,
-    `/OfferLib`,
     `/OfferMultiSig`,
     `/OfferRegistry`,
     `/config`
