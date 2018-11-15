@@ -140,6 +140,49 @@ contract OfferRegistry is Pausable {
 
     }
 
+    /**
+     * Return offer information from state
+     *
+     * @return list of every channel registered
+     * @param _state offer state agreed on by both parties
+     */
+
+    function getOfferState(
+        bytes _state
+    )
+    public
+    pure
+        returns (
+            bytes32 _guid,
+            uint256 _nonce,
+            uint256 _amount,
+            address _msigAddress,
+            uint256 _balanceA,
+            uint256 _balanceB,
+            address _ambassador,
+            address _expert,
+            uint256 _isClosed,
+            address _token,
+            uint256 _commitment,
+            uint256 _assertion
+        )
+    {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+             _guid := mload(add(_state, 288)) // [256-287] - a globally-unique identifier for the listing
+             _nonce:= mload(add(_state, 64)) // [32-63] - the sequence of state
+             _amount := mload(add(_state, 320)) // [288-319] - the offer amount awarded to expert for responses
+             _msigAddress := mload(add(_state, 160)) // [128-159] - msig address where funds and offer are managed
+             _balanceA := mload(add(_state,192)) // [160-191] balance in nectar for ambassador
+             _balanceB := mload(add(_state,224)) // [192-223] balance in nectar for expert
+             _ambassador := mload(add(_state, 96)) // [64-95] - offer's ambassador address
+             _expert := mload(add(_state, 128)) // [96-127] - offer's expert address
+             _isClosed := mload(add(_state, 32)) // [0-31] - 0 or 1 for if the state is marked as closed
+             _token := mload(add(_state, 256)) // [224-255] - nectar token address
+             _commitment := mload(add(_state, 480)) // [448-479] - commitment
+             _assertion := mload(add(_state, 512)) // [480-511] - assertions from expert
+        }
+    }
 
     // Internals
 
@@ -184,50 +227,6 @@ contract OfferRegistry is Pausable {
         return string(babcde);
     }
 
-    function getBalanceA(bytes _state) public pure returns(uint256 _balanceA) {
-        // solium-disable-next-line security/no-inline-assembly
-        assembly {
-            _balanceA := mload(add(_state,192))
-        }
-    }
-
-    function getBalanceB(bytes _state) public pure returns(uint256 _balanceB) {
-        // solium-disable-next-line security/no-inline-assembly
-        assembly {
-            _balanceB := mload(add(_state,224))
-        }
-    }
-
-    function getOfferState(
-        bytes _state
-    )
-    public
-    pure
-        returns(
-            bytes32 _guid,
-            uint256 _amount,
-            bytes32 _artifactHash,
-            bytes32 _artifactURI,
-            uint256 _engagementDeadline,
-            uint256 _assertionDeadline,
-            bytes32 _commitment,
-            bytes32 _assertion,
-            bytes32 _meta
-        )
-    {
-        // solium-disable-next-line security/no-inline-assembly
-        assembly {
-             _guid := mload(add(_state, 288)) // [256-287] A globally-unique identifier for the Listing.
-             _amount := mload(add(_state, 320)) // [288-319] The Offer Amount.
-             _artifactHash := mload(add(_state, 352)) // [320-351] Cryptographic hash of the Artifact.
-             _artifactURI := mload(add(_state, 384)) // [352-383] The IPFS URI of the Artifact.
-             _engagementDeadline := mload(add(_state, 416)) // [384-415] Engagement Deadline
-             _assertionDeadline := mload(add(_state, 448)) // [416-447] Assertion Deadline
-             _commitment := mload(add(_state, 480)) // [448-479] commitment
-             _assertion := mload(add(_state, 512)) // [480-511] bitmap of verdicts
-             _meta := mload(add(_state, 544)) // [512-543] Information derived during Assertion generation
-        }
-    }
 
     /** Disable usage of the fallback function */
     function() public payable {

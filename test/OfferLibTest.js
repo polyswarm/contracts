@@ -67,7 +67,7 @@ contract('Offer State Library', function(accounts) {
     
     offerLib = await OfferLib.new();
   })
-
+  
   it("should get offer state", async () => {
     const rawOfferState = await offerLib.getOfferState(offerStateBytes);
 
