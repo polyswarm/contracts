@@ -184,6 +184,51 @@ contract OfferRegistry is Pausable {
         return string(babcde);
     }
 
+    function getBalanceA(bytes _state) public pure returns(uint256 _balanceA) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _balanceA := mload(add(_state,192))
+        }
+    }
+
+    function getBalanceB(bytes _state) public pure returns(uint256 _balanceB) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _balanceB := mload(add(_state,224))
+        }
+    }
+
+    function getOfferState(
+        bytes _state
+    )
+    public
+    pure
+        returns(
+            bytes32 _guid,
+            uint256 _amount,
+            bytes32 _artifactHash,
+            bytes32 _artifactURI,
+            uint256 _engagementDeadline,
+            uint256 _assertionDeadline,
+            bytes32 _commitment,
+            bytes32 _assertion,
+            bytes32 _meta
+        )
+    {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+             _guid := mload(add(_state, 288)) // [256-287] A globally-unique identifier for the Listing.
+             _amount := mload(add(_state, 320)) // [288-319] The Offer Amount.
+             _artifactHash := mload(add(_state, 352)) // [320-351] Cryptographic hash of the Artifact.
+             _artifactURI := mload(add(_state, 384)) // [352-383] The IPFS URI of the Artifact.
+             _engagementDeadline := mload(add(_state, 416)) // [384-415] Engagement Deadline
+             _assertionDeadline := mload(add(_state, 448)) // [416-447] Assertion Deadline
+             _commitment := mload(add(_state, 480)) // [448-479] commitment
+             _assertion := mload(add(_state, 512)) // [480-511] bitmap of verdicts
+             _meta := mload(add(_state, 544)) // [512-543] Information derived during Assertion generation
+        }
+    }
+
     /** Disable usage of the fallback function */
     function() public payable {
         revert("Do not allow sending Eth to this contract");
