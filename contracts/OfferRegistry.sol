@@ -25,13 +25,11 @@ contract OfferRegistry is Pausable {
     mapping (bytes32 => address) public participantsToChannel;
     mapping (uint128 => OfferChannel) public guidToChannel;
 
-    address public offerLib;
     address public nectarAddress;
 
     constructor(address _nectarAddress) public {
         require(_nectarAddress != address(0), "Invalid token address");
 
-        offerLib = new OfferLib();
         nectarAddress = _nectarAddress;
     }
 
@@ -58,7 +56,7 @@ contract OfferRegistry is Pausable {
                 "Channel already exists between parties");
         }
 
-        address msig = new OfferMultiSig(offerLib, nectarAddress, _ambassador, _expert, _settlementPeriodLength);
+        address msig = new OfferMultiSig(nectarAddress, _ambassador, _expert, _settlementPeriodLength);
 
         participantsToChannel[key] = msig;
 
