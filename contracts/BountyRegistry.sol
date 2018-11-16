@@ -482,7 +482,7 @@ contract BountyRegistry is Pausable {
 
         expertRewards = new uint256[](assertions.length);
 
-        ArtifactPot memory ap;
+        ArtifactPot memory ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
 
         uint256 i = 0;
         uint256 j = 0;
