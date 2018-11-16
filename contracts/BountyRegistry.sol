@@ -657,7 +657,7 @@ contract BountyRegistry is Pausable {
         }
 
         uint i;
-        uint256 sum;
+        uint256 sum = 0;
         int256 randomNum;
 
         for (i = 0; i < bounty.voters.length; i++) {
