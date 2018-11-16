@@ -1,48 +1,63 @@
 image: docker:stable
 
-services:
-  - docker:dind
-
-before_script:
-  - apk --no-cache add curl jq
+test:
+  image: trailofbits/slither
+  stage: test
+  before_script:
+    - apk --no-cache add nodejs npm
+  script:
+    - set -e
+    - npm ci
+    - $(npm bin)/truffle compile
+    - cd $(dirname `npm root`) && ln -s `pwd`/node_modules/zeppelin-solidity `pwd`
+    - echo contract/*.sol
+    - >-
+      for contract in contracts/*.sol; do
+        ( slither --exclude-informational $contract )&
+      done
+      wait
 
 kick-e2e:
-    tags:
-        - docker
-    stage: deploy
-    script:
-      - set -e
-
-      # kick e2e
-      - >-
-        E2E_PIPELINE_ID=`curl
-        --silent
-        --request POST
-        --form "token=$CI_JOB_TOKEN"
-        --form "variables[SOURCE_PROJECT]=$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
-        --form "variables[SOURCE_BRANCH]=$CI_COMMIT_REF_NAME"
-        --form ref=master
-        "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
-
-      # run unit tests
-      - docker build -f docker/Dockerfile --cache-from polyswarm/contracts -t polyswarm/contracts .
-      - docker run polyswarm/contracts
-
-      # poll for e2e to finish
-      - >-
-        while [ -z $PIPELINE_STATUS ] || [ $PIPELINE_STATUS = "pending" ] || [ $PIPELINE_STATUS = "running" ]; do
-          PIPELINE_STATUS=`curl \
-            --silent \
-            --header "PRIVATE-TOKEN: $CI_CUSTOM_CI_PAT" \
-            "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/pipelines/$E2E_PIPELINE_ID" | jq -r ".status"`
-          echo "waiting for e2e pipeline ...";
-          sleep 5;
-        done
-
-      # check for success
-      - >-
-        if [ $PIPELINE_STATUS != "success" ]; then
-          echo "failure further down the pipeline"
-          exit 1
-        fi
-
+  tags:
+    - docker
+  stage: deploy
+  services:
+    - docker:dind
+  before_script:
+    - apk --no-cache add curl jq
+  script:
+    - set -e
+  
+    # kick e2e
+    - >-
+      E2E_PIPELINE_ID=`curl
+      --silent
+      --request POST
+      --form "token=$CI_JOB_TOKEN"
+      --form "variables[SOURCE_PROJECT]=$CI_PROJECT_NAMESPACE/$CI_PROJECT_NAME"
+      --form "variables[SOURCE_BRANCH]=$CI_COMMIT_REF_NAME"
+      --form ref=master
+      "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
+  
+    # run unit tests
+    - docker build -f docker/Dockerfile --cache-from polyswarm/contracts -t polyswarm/contracts .
+    - docker run polyswarm/contracts
+  
+    # poll for e2e to finish
+    - >-
+      while [ -z $PIPELINE_STATUS ] || [ $PIPELINE_STATUS = "pending" ] || [ $PIPELINE_STATUS = "running" ]; do
+        PIPELINE_STATUS=`curl \
+          --silent \
+          --header "PRIVATE-TOKEN: $CI_CUSTOM_CI_PAT" \
+          "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/pipelines/$E2E_PIPELINE_ID" | jq -r ".status"`
+        echo "waiting for e2e pipeline ...";
+        sleep 5;
+      done
+  
+    # check for success
+    - >-
+      if [ $PIPELINE_STATUS != "success" ]; then
+        echo "failure further down the pipeline"
+        exit 1
+      fi
+  
