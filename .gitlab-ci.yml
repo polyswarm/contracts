@@ -1,17 +1,19 @@
 image: docker:stable
 
 test:
-  image: trailofbits/slither
   stage: test
   before_script:
-    - apk --no-cache add nodejs npm
+    - apk --no-cache add git wget nodejs npm python3 python build-base bash
+    - npm install
   script:
     - set -e
-    - npm ci
-    - $(npm bin)/truffle compile
-    - cd $(dirname `npm root`) && ln -s `pwd`/node_modules/zeppelin-solidity `pwd`
-    - slither --version
-    - slither --exclude-informational contracts/
+    # - $(npm bin)/truffle compile
+    - cd $(dirname `npm root`)
+    - ln -s `pwd`/node_modules/zeppelin-solidity `pwd`
+    - pip3 install --user slither-analyzer
+    - wget https://github.com/ethereum/solidity/releases/download/v0.4.25/solc-static-linux
+    - chmod +x ./solc-static-linux
+    - $(python3 -m site --user-base)/bin/slither --solc ./solc-static-linux --exclude-informational contracts/
 
 kick-e2e:
   tags:
