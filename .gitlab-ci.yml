@@ -10,12 +10,7 @@ test:
     - npm ci
     - $(npm bin)/truffle compile
     - cd $(dirname `npm root`) && ln -s `pwd`/node_modules/zeppelin-solidity `pwd`
-    - echo contract/*.sol
-    - >-
-      for contract in contracts/*.sol; do
-        ( slither --exclude-informational $contract )&
-      done
-      wait
+    - slither --exclude-informational contracts/
 
 kick-e2e:
   tags:
