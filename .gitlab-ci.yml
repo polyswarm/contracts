@@ -10,6 +10,7 @@ test:
     - npm ci
     - $(npm bin)/truffle compile
     - cd $(dirname `npm root`) && ln -s `pwd`/node_modules/zeppelin-solidity `pwd`
+    - slither --version
     - slither --exclude-informational contracts/
 
 kick-e2e:
