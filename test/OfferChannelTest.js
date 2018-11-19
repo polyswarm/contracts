@@ -284,7 +284,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     const offerState = []
     offerState.push(0) // is close
     offerState.push(3) // sequence
-    offerState.push(ambassador) // ambassad or address
+    offerState.push(ambassador) // ambassador address
     offerState.push(expert) // expert address
     offerState.push(msig.address) //  msig address
     offerState.push(200) // balance in nectar ambassador
