@@ -162,7 +162,7 @@ contract OfferRegistry is Pausable {
             address _expert,
             uint256 _isClosed,
             address _token,
-            uint256 _commitment,
+            uint256 _mask,
             uint256 _assertion
         )
     {
@@ -178,7 +178,7 @@ contract OfferRegistry is Pausable {
              _expert := mload(add(_state, 128)) // [96-127] - offer's expert address
              _isClosed := mload(add(_state, 32)) // [0-31] - 0 or 1 for if the state is marked as closed
              _token := mload(add(_state, 256)) // [224-255] - nectar token address
-             _commitment := mload(add(_state, 480)) // [448-479] - commitment
+             _mask := mload(add(_state, 480)) // [448-479] - assertion mask
              _assertion := mload(add(_state, 512)) // [480-511] - assertions from expert
         }
     }
