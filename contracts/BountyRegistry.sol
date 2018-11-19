@@ -428,7 +428,6 @@ contract BountyRegistry is Pausable {
                 quorumVerdicts[i] = quorumVerdicts[i].add(1);
             }
 
-            // malVotes = quorumVerdicts[i]
             uint256 benignVotes = bountyVerdicts.length.sub(quorumVerdicts[i]);
             uint256 maxBenignValue = arbiterCount.sub(quorumVerdicts[i]).mul(BENIGN_VOTE_COEFFICIENT);
             uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
