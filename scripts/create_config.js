@@ -195,12 +195,16 @@ module.exports = async callback => {
       });
 
       if (options && options.accounts) {
-        await Promise.all(options.accounts
-        .filter(account => web3.isAddress(account))
-        .map(async account => {
-          logger.info('Minting tokens for ' + account);
-          await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
-        }));
+        // Take accounts 20 at a time, weird shift is for js integer division
+        for (let i = 0; i < (options.accounts.length / 20 >> 0); i++) {
+          await Promise.all(options.accounts
+            .slice(i * 10, (i + 1) * 10)
+            .filter(account => web3.isAddress(account))
+            .map(async account => {
+              logger.info('Minting tokens for ' + account);
+              await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+            }));
+        }
       }
     }
 
