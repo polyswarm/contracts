@@ -430,7 +430,7 @@ contract OfferMultiSig is Pausable {
         require(_t.allowance(getPartyA(_state), this) == getBalanceA(_state), "value does not match ambassador state balance");
 
         // complete the tranfer of ambassador approved tokens
-        require(_t.transferFrom(getPartyA(_state), this, getBalanceA(_state)));
+        require(_t.transferFrom(getPartyA(_state), this, getBalanceA(_state)), "failed tranfering approved balance from ambassador");
         return true;
     }
 
@@ -452,7 +452,7 @@ contract OfferMultiSig is Pausable {
         NectarToken _t = NectarToken(getTokenAddress(_state));
 
         if(_t.allowance(getPartyA(_state), this) > 0) {
-            require(_t.transferFrom(getPartyA(_state), this, _t.allowance(getPartyA(_state), this)));
+            require(_t.transferFrom(getPartyA(_state), this, _t.allowance(getPartyA(_state), this)), "failed transfering deposit from party A to contract");
         }
 
         require(getTotal(_state) == _t.balanceOf(this), "token total deposited does not match state balance");
@@ -477,8 +477,8 @@ contract OfferMultiSig is Pausable {
         NectarToken _t = NectarToken(getTokenAddress(_state));
         require(getTotal(_state) == _t.balanceOf(this), "tried finalizing token state that does not match bonded value");
 
-        require(_t.transfer(_a, getBalanceA(_state)));
-        require(_t.transfer(_b, getBalanceB(_state)));
+        require(_t.transfer(_a, getBalanceA(_state)), "failed transfering balance to party A");
+        require(_t.transfer(_b, getBalanceB(_state)), "failed transfering balance to party B");
     }
 
 
