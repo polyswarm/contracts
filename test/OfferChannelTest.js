@@ -1,7 +1,6 @@
 'use strict'
 import advanceToBlock from './helpers/advanceToBlock';
 
-const OfferLib = artifacts.require("./OfferLib.sol")
 const Web3Utils = require('web3-utils');
 const OfferRegistry = artifacts.require("./OfferRegistry.sol")
 const OfferMultiSig = artifacts.require("./OfferMultiSig.sol")
@@ -124,7 +123,6 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     inputs.push(20) // balance in nectar ambassador
     inputs.push(0) // balance in nectar expert
     inputs.push(nectaraddress) // token address
-    let offerLib = await OfferLib.new();
 
     s0 = inputs
     s0marshall = Utils.marshallState(inputs)
@@ -273,7 +271,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     sigS.push(s)
     sigS.push(s2)
 
-    await msig.depositState(depositState, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
+    await msig.depositFunds(depositState, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
     let newBal = await nectar.balanceOf(msig.address);
 
     assert.equal(newBal.toNumber(), 200);
@@ -453,5 +451,61 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
     await msig.closeAgreementWithTimeout(s2marshall, sigV, sigR, sigS, { from: ambassador, gas: 1000000 });
   })
+
+
+  it("should get close flag", async () => {
+    const raw = await msig.getCloseFlag(s0marshall);
+
+    assert.equal(Web3Utils.hexToNumber(raw), 0);
+  })
+
+  it("should get state sequence", async () => {
+    const raw = await msig.getSequence(s0marshall);
+
+    assert.equal(Web3Utils.hexToNumber(raw), 0);
+  })
+
+  it("should get ambassador address", async () => {
+    const raw = await msig.getPartyA(s0marshall);
+
+    assert.equal(raw, ambassador);
+  })
+
+  it("should get expert address", async () => {
+    const raw = await msig.getPartyB(s0marshall);
+
+    assert.equal(raw, expert);
+  })
+
+  it("should get ambassador balance", async () => {
+    const raw = await msig.getBalanceA(s0marshall);
+    
+    assert.equal(Web3Utils.hexToNumber(raw), 20);
+  })
+
+  it("should get expert balance", async () => {
+    const raw = await msig.getBalanceB(s0marshall);
+    
+    assert.equal(Web3Utils.hexToNumber(raw), 0);
+  })
+
+  it("should get nectar address", async () => {
+    const raw = await msig.getTokenAddress(s0marshall);
+
+    assert.equal(raw, nectaraddress);
+  })
+
+  it("should get channel total", async () => {
+    const raw = await msig.getTotal(s0marshall);
+    
+    assert.equal(Web3Utils.hexToNumber(raw), 20);
+  })
+
+  it("should get channel total", async () => {
+    const raw = await msig.getTotal(s0marshall);
+    
+    assert.equal(Web3Utils.hexToNumber(raw), 20);
+  })
+
 
 })

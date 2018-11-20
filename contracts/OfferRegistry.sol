@@ -3,7 +3,6 @@ pragma solidity ^0.4.23;
 import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
 import "./OfferMultiSig.sol";
-import "./OfferLib.sol";
 
 /// @title Creates new Offer Channel contracts and keeps track of them
 contract OfferRegistry is Pausable {
@@ -25,13 +24,11 @@ contract OfferRegistry is Pausable {
     mapping (bytes32 => address) public participantsToChannel;
     mapping (uint128 => OfferChannel) public guidToChannel;
 
-    address public offerLib;
     address public nectarAddress;
 
     constructor(address _nectarAddress) public {
         require(_nectarAddress != address(0), "Invalid token address");
 
-        offerLib = new OfferLib();
         nectarAddress = _nectarAddress;
     }
 
@@ -58,7 +55,7 @@ contract OfferRegistry is Pausable {
                 "Channel already exists between parties");
         }
 
-        address msig = new OfferMultiSig(offerLib, nectarAddress, _ambassador, _expert, _settlementPeriodLength);
+        address msig = new OfferMultiSig(nectarAddress, _ambassador, _expert, _settlementPeriodLength);
 
         participantsToChannel[key] = msig;
 
@@ -142,6 +139,49 @@ contract OfferRegistry is Pausable {
 
     }
 
+    /**
+     * Return offer information from state
+     *
+     * @return list of every channel registered
+     * @param _state offer state agreed on by both parties
+     */
+
+    function getOfferState(
+        bytes _state
+    )
+    public
+    pure
+        returns (
+            bytes32 _guid,
+            uint256 _nonce,
+            uint256 _amount,
+            address _msigAddress,
+            uint256 _balanceA,
+            uint256 _balanceB,
+            address _ambassador,
+            address _expert,
+            uint256 _isClosed,
+            address _token,
+            uint256 _mask,
+            uint256 _assertion
+        )
+    {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+             _guid := mload(add(_state, 288)) // [256-287] - a globally-unique identifier for the listing
+             _nonce:= mload(add(_state, 64)) // [32-63] - the sequence of state
+             _amount := mload(add(_state, 320)) // [288-319] - the offer amount awarded to expert for responses
+             _msigAddress := mload(add(_state, 160)) // [128-159] - msig address where funds and offer are managed
+             _balanceA := mload(add(_state,192)) // [160-191] balance in nectar for ambassador
+             _balanceB := mload(add(_state,224)) // [192-223] balance in nectar for expert
+             _ambassador := mload(add(_state, 96)) // [64-95] - offer's ambassador address
+             _expert := mload(add(_state, 128)) // [96-127] - offer's expert address
+             _isClosed := mload(add(_state, 32)) // [0-31] - 0 or 1 for if the state is marked as closed
+             _token := mload(add(_state, 256)) // [224-255] - nectar token address
+             _mask := mload(add(_state, 480)) // [448-479] - assertion mask
+             _assertion := mload(add(_state, 512)) // [480-511] - assertions from expert
+        }
+    }
 
     // Internals
 
@@ -185,6 +225,7 @@ contract OfferRegistry is Pausable {
 
         return string(babcde);
     }
+
 
     /** Disable usage of the fallback function */
     function() public payable {

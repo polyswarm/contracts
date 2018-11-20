@@ -51,7 +51,7 @@ module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainN
 
 async function doesMatchExist(gethURL, contractName, contractAddress) {
 	const utils = bytecodeUtils.init(gethURL);
-	const importedContracts = ['ArbiterStaking', 'NectarToken', 'OfferMultiSig', 'OfferLib'];
+	const importedContracts = ['ArbiterStaking', 'NectarToken', 'OfferMultiSig'];
 	const contractToImportPaths = importedContracts.map(c => path.resolve(`../contracts/${c}.sol`));
 	const contractPath = path.resolve(`../contracts/${contractName}.sol`);
 

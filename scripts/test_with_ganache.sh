@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # start test blockchain
-node ./node_modules/ganache-cli/build/cli.node.js --gasLimit 650000000 --gasPrice 0 >/dev/null 2>/dev/null &
+node ./node_modules/ganache-cli/build/cli.node.js --gasLimit 650000000 --gasPrice 0 --port 8545 >/dev/null 2>/dev/null &
 
 # run linter
 LINT_OUTPUT="$(node ./node_modules/solium/bin/solium.js -d contracts/)"
