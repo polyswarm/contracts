@@ -13,7 +13,7 @@ test:
     - pip3 install --user slither-analyzer
     - wget https://github.com/ethereum/solidity/releases/download/v0.4.25/solc-static-linux
     - chmod +x ./solc-static-linux
-    - $(python3 -m site --user-base)/bin/slither --solc ./solc-static-linux --exclude-informational contracts/
+    - $(python3 -m site --user-base)/bin/slither --solc ./solc-static-linux --exclude-informational --exclude-low --exclude-medium contracts/
 
 kick-e2e:
   tags:
