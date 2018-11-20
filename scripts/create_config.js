@@ -7,9 +7,8 @@ const OfferRegistry = artifacts.require('OfferRegistry');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
 const ERC20Relay = artifacts.require('ERC20Relay');
-const OfferLib = artifacts.require('OfferLib');
 const OfferMultiSig = artifacts.require('OfferMultiSig');
-const ARBITER_VOTE_WINDOW = 100;
+const ARBITER_VOTE_WINDOW = process.env.POLY_WORK === 'prod' ? 1200 : 100;
 const STAKE_DURATION = 100;
 const CONSUL_TIMEOUT = 5000; // time it takes for consul to timeout a request
 const fs = require('fs');
@@ -51,7 +50,14 @@ module.exports = async callback => {
   let options = null;
   const consulUrl = new url.parse(args.consul);
   const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
-  const consulBaseUrl = `chain/${args['poly-sidechain-name']}`;
+  const consulBaseKey = `chain/${args['poly-sidechain-name']}`;
+
+  try {
+    let response = await consul.kv.del({key: consulBaseKey, recurse: true});
+  } catch (e) {
+    logger.error({ message: `Failed deleting key, assuming it doesn't exist. ${e.message}`, stack: e.stack });
+  }
+
   const configPath = 'config';
 
   if (args.options && fs.existsSync(args.options)) {
@@ -93,7 +99,6 @@ module.exports = async callback => {
   await putABI(OfferRegistry);
   await putABI(BountyRegistry);
   await putABI(ArbiterStaking);
-  await putABI(OfferLib);
   await putABI(OfferMultiSig);
   await putABI(ERC20Relay);
   await putChainConfig(configPath, config);
@@ -103,11 +108,11 @@ module.exports = async callback => {
   async function putABI(artifact) {
     const { contractName, abi } = artifact._json;
 
-    return await putConsul(`${consulBaseUrl}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseUrl}/${contractName}`);
+    return await putConsul(`${consulBaseKey}/${contractName}`, { abi }, `Error trying to PUT contract ABI at: ${consulBaseKey}/${contractName}`);
   }
 
   async function putChainConfig(name, config) {
-    return await putConsul(`${consulBaseUrl}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseUrl}/${name}`);
+    return await putConsul(`${consulBaseKey}/${name}`, config, `Error trying to PUT chain config at: ${consulBaseKey}/${name}`);
   }
 
   async function putConsul(path, data, errorMessage) {
@@ -135,29 +140,29 @@ module.exports = async callback => {
   }
 
   logger.info(options);
-  async function deployTo(uri, name, options) {    
+  async function deployTo(uri, name, options) {
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
     ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
-    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.coinbase || web3.eth.accounts[0];
+    const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.accounts[0];
     logger.info(`Deploying contracts from: ${from}`);
 
     const nectarToken = await NectarToken.new({ from: from });
     const offerRegistry = await OfferRegistry.new(nectarToken.address, { from });
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION, { from });
-    
+
     const net = new Net(new web3.providers.HttpProvider(uri));
-    const chainId = await net.getId();    
+    const chainId = await net.getId();
     const chainConfig = {};
 
-    if (options.relay && name == 'homechain') {
+    if (options && options.relay && name == 'homechain') {
       let erc20Relay = await ERC20Relay.new(nectarToken.address, NCT_ETH_EXCHANGE_RATE, options.relay.fee_wallet || ZERO_ADDRESS, options.relay.verifiers || [], { from });
 
       await nectarToken.mint(from, TOTAL_SUPPLY, { from });
       chainConfig.erc20_relay_address = erc20Relay.address;
-    } else if (options.relay && name == 'sidechain') {
+    } else if (options && options.relay && name == 'sidechain') {
       let erc20Relay = await ERC20Relay.new(nectarToken.address, 0, ZERO_ADDRESS, options.relay.verifiers || [], { from });
 
       await nectarToken.mint(erc20Relay.address, TOTAL_SUPPLY, { from });
@@ -167,43 +172,51 @@ module.exports = async callback => {
     }
 
     chainConfig.chain_id = chainId;
-    chainConfig.eth_uri = uri;    
+    chainConfig.eth_uri = uri;
     chainConfig.nectar_token_address = nectarToken.address;
-    chainConfig.bounty_registry_address = bountyRegistry.address;    
+    chainConfig.bounty_registry_address = bountyRegistry.address;
     chainConfig.offer_registry_address = offerRegistry.address;
-    
-    if (options && options.free) {
+
+    if (options && ((name == 'homechain' && options.homechain_free) || (name == 'sidechain' && options.sidechain_free))) {
       logger.info("Setting gasPrice to 0 (Free to use.)");
-      chainConfig.free = 'true';
+      chainConfig.free = true;
     } else {
-      chainConfig.free = 'false';
+      chainConfig.free = false;
     }
 
-    await web3.eth.accounts.forEach(async account => {
-      logger.info('Minting tokens for ' + account);
-      await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
-    });
-
     await nectarToken.enableTransfers({ from });
+
+    if (name == 'homechain') {
+      await web3.eth.accounts.forEach(async account => {
+        logger.info('Minting tokens for ' + account);
+        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+      });
+
+      if (options && options.accounts) {
+        // Take accounts 20 at a time, weird shift is for js integer division
+        for (let i = 0; i < (options.accounts.length / 20 >> 0); i++) {
+          await Promise.all(options.accounts
+            .slice(i * 10, (i + 1) * 10)
+            .filter(account => web3.isAddress(account))
+            .map(async account => {
+              logger.info('Minting tokens for ' + account);
+              await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+            }));
+        }
+      }
+    }
 
     if (options && options.arbiters) {
       await Promise.all(options.arbiters
       .filter(arbiter => web3.isAddress(arbiter))
       .map(async arbiter => {
-        logger.info('Funding arbiter: '+ arbiter);
-          await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'), { from });
+          if (name == 'homechain') {
+            logger.info('Funding arbiter: '+ arbiter);
+            await nectarToken.mint(arbiter, web3.toWei(1000000000, 'ether'), { from });
+          }
           logger.info('Adding arbiter: ' + arbiter);
           logger.info(await web3.eth.blockNumber);
           await bountyRegistry.addArbiter(arbiter, await web3.eth.blockNumber, { from });
-      }));
-    }
-
-    if (options && options.accounts) {
-      await Promise.all(options.accounts
-      .filter(account => web3.isAddress(account))
-      .map(async account => {
-        logger.info('Minting tokens for ' + account);
-        await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
       }));
     }
 

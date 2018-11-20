@@ -1,6 +1,7 @@
 pragma solidity ^0.4.23;
 import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "zeppelin-solidity/contracts/math/SafeMath.sol";
+import "./NectarToken.sol";
 
 contract OfferMultiSig is Pausable {
     using SafeMath for uint256;
@@ -31,6 +32,13 @@ contract OfferMultiSig is Pausable {
         address _ambassador
     );
 
+    event FundsDeposited(
+        address _ambassador,
+        address _expert,
+        uint256 ambassadorBalance,
+        uint256 expertBalance
+    );
+
     event StartedSettle(
         address initiator,
         uint sequence,
@@ -46,7 +54,6 @@ contract OfferMultiSig is Pausable {
     address public nectarAddress; // Address of offer nectar token
     address public ambassador; // Address of first channel participant
     address public expert; // Address of second channel participant
-    address public offerLib;
     
     bool public isOpen = false; // true when both parties have joined
     bool public isPending = false; // true when waiting for counterparty to join agreement
@@ -60,8 +67,7 @@ contract OfferMultiSig is Pausable {
     bytes public state; // the current state
     bytes32 public websocketUri; // a geth node running whisper (shh)
 
-    constructor(address _offerLib, address _nectarAddress, address _ambassador, address _expert, uint _settlementPeriodLength) public {
-        require(_offerLib != address(0), "No offer lib provided to constructor");
+    constructor(address _nectarAddress, address _ambassador, address _expert, uint _settlementPeriodLength) public {
         require(_ambassador != address(0), "No ambassador lib provided to constructor");
         require(_expert != address(0), "No expert provided to constructor");
         require(_nectarAddress != address(0), "No token provided to constructor");
@@ -70,7 +76,6 @@ contract OfferMultiSig is Pausable {
         require(_settlementPeriodLength >= MIN_SETTLEMENT_PERIOD && _settlementPeriodLength <= MAX_SETTLEMENT_PERIOD,
             "Settlement period out of range");
 
-        offerLib = _offerLib;
         ambassador = _ambassador;
         expert = _expert;
         settlementPeriodLength = _settlementPeriodLength;
@@ -97,9 +102,10 @@ contract OfferMultiSig is Pausable {
         require(isPending == false, "openAgreement already called, isPending true");
         require(msg.sender == ambassador, "msg.sender is not the ambassador");
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
+        require(msg.sender == getPartyA(_state), "Party A does not match signature recovery");
 
         // check the account opening a channel signed the initial state
-        address initiator = _getSig(_state, _v, _r, _s);
+        address initiator = getSig(_state, _v, _r, _s);
 
         require(ambassador == initiator, "Initiator in state is not the ambassador");
 
@@ -107,17 +113,10 @@ contract OfferMultiSig is Pausable {
 
         state = _state;
 
-        uint _length = _state.length;
-
-
-        // the open inerface can generalize an entry point for differenct kinds of checks
-        // on opening state
-        // solium-disable-next-line security/no-low-level-calls
-        require(address(offerLib).delegatecall(bytes4(keccak256("open(bytes)")), bytes32(32), bytes32(_length), _state), "open failed");
+        open(_state);
 
         emit OpenedAgreement(ambassador);
     }
-
 
     /**
      * Function called by ambassador to cancel a channel that hasn't been joined yet
@@ -129,9 +128,7 @@ contract OfferMultiSig is Pausable {
 
         isPending = false;
 
-        // the open inerface can generalize an entry point for differenct kinds of checks
-        // solium-disable-next-line security/no-low-level-calls
-        require(address(offerLib).delegatecall(bytes4(keccak256("cancel(address)")), nectarAddress), "cancel failed");
+        cancel(nectarAddress);
 
         emit CanceledAgreement(ambassador);
     }
@@ -151,7 +148,7 @@ contract OfferMultiSig is Pausable {
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
 
         // check that the state is signed by the sender and sender is in the state
-        address joiningParty = _getSig(_state, _v, _r, _s);
+        address joiningParty = getSig(_state, _v, _r, _s);
 
         require(expert == joiningParty, "Joining party in state is not the expert");
 
@@ -160,11 +157,7 @@ contract OfferMultiSig is Pausable {
 
         isPending = false;
 
-        uint _length = _state.length;
-
-
-        // solium-disable-next-line security/no-low-level-calls
-        require(address(offerLib).delegatecall(bytes4(keccak256("join(bytes)")), bytes32(32), bytes32(_length), _state), "join failed");
+        join(state);
 
         emit JoinedAgreement(expert);
     }
@@ -179,20 +172,19 @@ contract OfferMultiSig is Pausable {
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
-    function depositState(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
-        require(isOpen == true, "Tried adding state to a close msig wallet");
-        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
-        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+    function depositFunds(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
+        require(isOpen == true, "Tried adding funds to a closed msig wallet");
+        address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
         // Require both signatures
-        require(_hasAll_Sigs(_ambassador, _expert), "Missing signatures");
-
-        uint _length = _state.length;
+        require(_hasAllSigs(_ambassador, _expert), "Missing signatures");
 
         state = _state;
 
-        // solium-disable-next-line security/no-low-level-calls
-        require(address(offerLib).delegatecall(bytes4(keccak256("update(bytes)")), bytes32(32), bytes32(_length), _state), "update failed");
+        update(_state);
+
+        emit FundsDeposited(_ambassador, _expert, getBalanceA(_state), getBalanceB(_state));
     }
 
     /**
@@ -206,19 +198,19 @@ contract OfferMultiSig is Pausable {
      * @dev index 1 is the expert signature
      */
     function closeAgreementWithTimeout(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
-        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
-        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+        address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
         require(settlementPeriodEnd <= block.number, "Settlement period hasn't ended");
         require(isClosed == 0, "Offer is closed");
         require(isInSettlementState == 1, "Offer is not in settlement state");
 
-        require(_hasAll_Sigs(_ambassador, _expert), "Missing signatures");
+        require(_hasAllSigs(_ambassador, _expert), "Missing signatures");
         require(keccak256(state) == keccak256(_state), "State hash mismatch");
 
         isClosed = 1;
 
-        _finalize(_state);
+        finalize(_state);
         isOpen = false;
 
         emit ClosedAgreement(_expert, _ambassador);
@@ -236,8 +228,8 @@ contract OfferMultiSig is Pausable {
      * @dev index 1 is the expert signature
      */
     function closeAgreement(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
-        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
-        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+        address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
         require(isClosed == 0, "Offer is closed");
         
@@ -246,12 +238,12 @@ contract OfferMultiSig is Pausable {
 
         /// @dev must have close flag
         require(_isClosed(_state), "State did not have a signed close out state");
-        require(_hasAll_Sigs(_ambassador, _expert), "Missing signatures");
+        require(_hasAllSigs(_ambassador, _expert), "Missing signatures");
 
         isClosed = 1;
         state = _state;
 
-        _finalize(_state);
+        finalize(_state);
         isOpen = false;
 
         emit ClosedAgreement(_expert, _ambassador);
@@ -268,18 +260,18 @@ contract OfferMultiSig is Pausable {
      * @param _sigS output of ECDSA signature of state by both parties
      */
     function startSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
-        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
-        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+        address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
 
-        require(_hasAll_Sigs(_ambassador, _expert), "Missing signatures");
+        require(_hasAllSigs(_ambassador, _expert), "Missing signatures");
 
         require(isClosed == 0, "Offer is closed");
         require(isInSettlementState == 0, "Offer is in settlement state");
 
         state = _state;
 
-        sequence = _getSequence(_state);
+        sequence = getSequence(_state);
 
         isInSettlementState = 1;
         settlementPeriodEnd = block.number.add(settlementPeriodLength);
@@ -297,19 +289,19 @@ contract OfferMultiSig is Pausable {
      * @param _sigS output of ECDSA signature of state by both parties
      */
     function challengeSettle(bytes _state, uint8[2] _sigV, bytes32[2] _sigR, bytes32[2] _sigS) public onlyParticipants whenNotPaused {
-        address _ambassador = _getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
-        address _expert = _getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
+        address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
+        address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
-        require(_hasAll_Sigs(_ambassador, _expert), "Missing signatures");
+        require(_hasAllSigs(_ambassador, _expert), "Missing signatures");
 
         require(isInSettlementState == 1, "Offer is not in settlement state");
         require(block.number < settlementPeriodEnd, "Settlement period has ended");
 
-        require(_getSequence(_state) > sequence, "Sequence number is too old");
+        require(getSequence(_state) > sequence, "Sequence number is too old");
 
         settlementPeriodEnd = block.number.add(settlementPeriodLength);
         state = _state;
-        sequence = _getSequence(_state);
+        sequence = getSequence(_state);
 
         emit SettleStateChallenged(msg.sender, sequence, settlementPeriodEnd);
     }
@@ -336,11 +328,11 @@ contract OfferMultiSig is Pausable {
     }
 
     /**
-     * Function called to get the state sequence
+     * Function called to get the state sequence/nonce
      *
      * @param _state offer state
      */
-    function _getSequence(bytes _state) public pure returns (uint _seq) {
+    function getSequence(bytes _state) public pure returns (uint _seq) {
         // solium-disable-next-line security/no-inline-assembly
         assembly {
             _seq := mload(add(_state, 64))
@@ -355,19 +347,6 @@ contract OfferMultiSig is Pausable {
         return websocketUri;
     }
 
-
-    /**
-     * Function called by closeAgreementWithTimeout or closeAgreement to disperse payouts
-     *
-     * @param _state final offer state agreed on by both parties with close flag
-     */
-    function _finalize(bytes _state) internal whenNotPaused {
-        uint _length = _state.length;
-        
-        // solium-disable-next-line security/no-low-level-calls
-        require(address(offerLib).delegatecall(bytes4(keccak256("finalize(bytes)")), bytes32(32), bytes32(_length), _state), "finalize failed");
-    }
-
     /**
      * A utility function to check if both parties have signed
      *
@@ -375,7 +354,7 @@ contract OfferMultiSig is Pausable {
      * @param _b expert address
      */
 
-    function _hasAll_Sigs(address _a, address _b) internal view returns (bool) {
+    function _hasAllSigs(address _a, address _b) internal view returns (bool) {
         require(_a == ambassador && _b == expert, "Signatures do not match parties in state");
 
         return true;
@@ -386,25 +365,122 @@ contract OfferMultiSig is Pausable {
      *
      * @param _state current offer state
      */
-    function _isClosed(bytes _state) internal pure returns(bool) {
-        uint8 isClosedState;
-
-        // solium-disable-next-line security/no-inline-assembly
-        assembly {
-            isClosedState := mload(add(_state, 32))
-        }
-
-        require(isClosedState == 1, "Offer is not closed");
+    function _isClosed(bytes _state) internal pure returns (bool) {
+        require(getCloseFlag(_state) == 1, "Offer is not closed");
 
         return true;
+    }
+
+    function getCloseFlag(bytes _state) public pure returns (uint8 _flag) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _flag := mload(add(_state, 32))
+        }
+    }
+
+    function getPartyA(bytes _state) public pure returns (address _ambassador) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _ambassador := mload(add(_state, 96))
+        }
+    }
+
+    function getPartyB(bytes _state) public pure returns (address _expert) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _expert := mload(add(_state, 128))
+        }
+    }
+
+    function getBalanceA(bytes _state) public pure returns (uint256 _balanceA) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _balanceA := mload(add(_state, 192))
+        }
+    }
+
+    function getBalanceB(bytes _state) public pure returns (uint256 _balanceB) {
+        // solium-disable-next-line security/no-inline-assembly
+        assembly {
+            _balanceB := mload(add(_state, 224))
+        }
     }
 
     function getTokenAddress(bytes _state) public pure returns (address _token) {
         // solium-disable-next-line security/no-inline-assembly
         assembly {
-            _token := mload(add(_state,256))
+            _token := mload(add(_state, 256))
         }
     }
+
+    function getTotal(bytes _state) public pure returns (uint256) {
+        uint256 _a = getBalanceA(_state);
+        uint256 _b = getBalanceB(_state);
+
+        return _a.add(_b);
+    }
+
+    function open(bytes _state) internal returns (bool) {
+        require(msg.sender == getPartyA(_state), "Party A does not match signature recovery");
+
+        // get the token instance used to allow funds to msig
+        NectarToken _t = NectarToken(getTokenAddress(_state));
+
+        // ensure the amount sent to open channel matches the signed state balance
+        require(_t.allowance(getPartyA(_state), this) == getBalanceA(_state), "value does not match ambassador state balance");
+
+        // complete the tranfer of ambassador approved tokens
+        _t.transferFrom(getPartyA(_state), this, getBalanceA(_state));
+        return true;
+    }
+
+    function join(bytes _state) internal view returns (bool) {
+        // get the token instance used to allow funds to msig
+        NectarToken _t = NectarToken(getTokenAddress(_state));
+
+        // ensure the amount sent to join channel matches the signed state balance
+        require(msg.sender == getPartyB(_state), "Party B does not match signature recovery");
+
+        // Require bonded is the sum of balances in state
+        require(getTotal(_state) == _t.balanceOf(this), "token total deposited does not match state balance");
+
+        return true;
+    }
+
+    function update(bytes _state) internal returns (bool) {
+        // get the token instance used to allow funds to msig
+        NectarToken _t = NectarToken(getTokenAddress(_state));
+
+        if(_t.allowance(getPartyA(_state), this) > 0) {
+            _t.transferFrom(getPartyA(_state), this, _t.allowance(getPartyA(_state), this));
+        }
+
+        require(getTotal(_state) == _t.balanceOf(this), "token total deposited does not match state balance");
+    }
+
+    function cancel(address tokenAddress) internal returns (bool) {
+        NectarToken _t = NectarToken(tokenAddress);
+
+        return _t.transfer(msg.sender, _t.balanceOf(this));
+    }
+
+    /**
+     * Function called by closeAgreementWithTimeout or closeAgreement to disperse payouts
+     *
+     * @param _state final offer state agreed on by both parties with close flag
+     */
+
+    function finalize(bytes _state) internal returns (bool) {
+        address _a = getPartyA(_state);
+        address _b = getPartyB(_state);
+
+        NectarToken _t = NectarToken(getTokenAddress(_state));
+        require(getTotal(_state) == _t.balanceOf(this), "tried finalizing token state that does not match bonded value");
+
+        _t.transfer(_a, getBalanceA(_state));
+        _t.transfer(_b, getBalanceB(_state));
+    }
+
 
     /**
      * A utility function to return the address of the person that signed the state
@@ -414,7 +490,7 @@ contract OfferMultiSig is Pausable {
      * @param _r output of ECDSA signature  of state by both parties
      * @param _s output of ECDSA signature of state by both parties
      */
-    function _getSig(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) internal pure returns(address) {
+    function getSig(bytes _state, uint8 _v, bytes32 _r, bytes32 _s) internal pure returns (address) {
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
         bytes32 h = keccak256(_state);
 
@@ -422,6 +498,6 @@ contract OfferMultiSig is Pausable {
 
         address a = ecrecover(prefixedHash, _v, _r, _s);
 
-        return(a);
+        return a;
     }
 }
