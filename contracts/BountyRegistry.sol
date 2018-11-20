@@ -479,7 +479,7 @@ contract BountyRegistry is Pausable {
         Bounty storage bounty = bountiesByGuid[bountyGuid];
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
         Verdict[] storage verdicts = verdictsByGuid[bountyGuid];
-        mapping (uint256 => uint256) quorumVerdict = quorumVerdictsByGuid[bountyGuid];
+        mapping (uint256 => uint256) quorumVerdicts = quorumVerdictsByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
         require(bounty.author != address(0), "Bounty has not been initialized");
@@ -508,7 +508,7 @@ contract BountyRegistry is Pausable {
             }
         } else {
             for (i = 0; i < bounty.numArtifacts; i++) {
-                bool consensus = quorumVerdict[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= verdicts.length.sub(quorumVerdict[i]).mul(BENIGN_VOTE_COEFFICIENT);
+                bool consensus = quorumVerdicts[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= verdicts.length.sub(quorumVerdicts[i]).mul(BENIGN_VOTE_COEFFICIENT);
 
                 for (j = 0; j < assertions.length; j++) {
                     bool malicious;
