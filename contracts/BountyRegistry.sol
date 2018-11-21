@@ -432,10 +432,7 @@ contract BountyRegistry is Pausable {
             uint256 maxBenignValue = arbiterCount.sub(quorumVerdicts[i]).mul(BENIGN_VOTE_COEFFICIENT);
             uint256 maxMalValue = arbiterCount.sub(benignVotes).mul(MALICIOUS_VOTE_COEFFICIENT);
 
-            if (quorumVerdicts[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue) {
-                tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
-                quorumCount = quorumCount.add(1);
-            } else if (benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
+            if (quorumVerdicts[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= maxBenignValue || benignVotes.mul(BENIGN_VOTE_COEFFICIENT) > maxMalValue) {
                 tempQuorumMask = tempQuorumMask.add(calculateMask(i, 1));
                 quorumCount = quorumCount.add(1);
             }
