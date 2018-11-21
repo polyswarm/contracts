@@ -136,7 +136,7 @@ contract BountyRegistry is Pausable {
     constructor(address _token, uint256 _arbiterVoteWindow, uint256 _stakeDuration) Ownable() public {
         owner = msg.sender;
         token = NectarToken(_token);
-        staking = new ArbiterStaking(_token, _stakeDuration);
+        staking = new ArbiterStaking(_token, this, _stakeDuration);
         arbiterVoteWindow = _arbiterVoteWindow;
     }
 

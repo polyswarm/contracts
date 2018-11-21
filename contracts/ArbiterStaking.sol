@@ -4,6 +4,7 @@ import "zeppelin-solidity/contracts/math/SafeMath.sol";
 import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 import "./NectarToken.sol";
+import "./BountyRegistry.sol";
 
 contract ArbiterStaking is Pausable {
     using SafeMath for uint256;
@@ -45,15 +46,23 @@ contract ArbiterStaking is Pausable {
 
     uint256 public stakeDuration;
     NectarToken internal token;
+    BountyRegistry internal registry;
 
     /**
      * Construct a new ArbiterStaking
      *
      * @param _token address of NCT token to use
      */
-    constructor(address _token, uint256 _stakeDuration) Ownable() public {
+    constructor(address _token, address _bountyRegistry, uint256 _stakeDuration) Ownable() public {
         token = NectarToken(_token);
+        registry = BountyRegistry(_bountyRegistry);
         stakeDuration = _stakeDuration;
+    }
+
+        /** Function only callable by arbiter */
+    modifier onlyArbiter() {
+        require(registry.isArbiter(msg.sender), "msg.sender is not an arbiter");
+        _;
     }
 
     /**
@@ -94,7 +103,7 @@ contract ArbiterStaking is Pausable {
      *
      * @param value The amount of NCT to deposit
      */
-    function deposit(uint256 value) public whenNotPaused {
+    function deposit(uint256 value) public whenNotPaused onlyArbiter {
         require(receiveApproval(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
     }
 
@@ -140,7 +149,7 @@ contract ArbiterStaking is Pausable {
      * Withdraw staked NCT
      * @param value The amount of NCT to withdraw
      */
-    function withdraw(uint256 value) public whenNotPaused {
+    function withdraw(uint256 value) public whenNotPaused onlyArbiter {
         uint256 remaining = value;
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[msg.sender];
