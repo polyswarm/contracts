@@ -59,12 +59,6 @@ contract ArbiterStaking is Pausable {
         stakeDuration = _stakeDuration;
     }
 
-        /** Function only callable by arbiter */
-    modifier onlyArbiter() {
-        require(registry.isArbiter(msg.sender), "msg.sender is not an arbiter");
-        _;
-    }
-
     /**
      * Handle a deposit upon receiving approval for a token transfer
      * Called from NectarToken.approveAndCall
@@ -82,8 +76,22 @@ contract ArbiterStaking is Pausable {
     )
         public
         whenNotPaused
-        returns (bool)
     {
+        require(msg.sender == address(token), "Must be called from the token.");
+        require(receiveApprovalInternal(_from, _value, _tokenContract, new bytes(0)), "Depositing stake failed");
+    }
+
+    function receiveApprovalInternal(
+        address _from,
+        uint256 _value,
+        address _tokenContract,
+        bytes
+    )
+        internal
+        whenNotPaused
+        returns (boo)
+    {
+        require(registry.isArbiter(_from), "Deposit target is not an arbiter");
         // Ensure we are depositing something
         require(_value > 0, "Zero value being deposited");
         // Ensure we are called from he right token contract
@@ -103,8 +111,8 @@ contract ArbiterStaking is Pausable {
      *
      * @param value The amount of NCT to deposit
      */
-    function deposit(uint256 value) public whenNotPaused onlyArbiter {
-        require(receiveApproval(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
+    function deposit(uint256 value) public whenNotPaused {
+        require(receiveApprovalInternal(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
     }
 
     /**
@@ -149,7 +157,7 @@ contract ArbiterStaking is Pausable {
      * Withdraw staked NCT
      * @param value The amount of NCT to withdraw
      */
-    function withdraw(uint256 value) public whenNotPaused onlyArbiter {
+    function withdraw(uint256 value) public whenNotPaused {
         uint256 remaining = value;
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[msg.sender];
