@@ -716,7 +716,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1).should.be.rejectedWith(EVMRevert);
     });
 
-    it('should allow removing and readding arbiters', async function() {
+    it('should allow removing and adding arbiters', async function() {
       await this.bountyregistry.removeArbiter(arbiter0, web3.eth.blockNumber);
       await this.bountyregistry.addArbiter(arbiter0, web3.eth.blockNumber);
 
