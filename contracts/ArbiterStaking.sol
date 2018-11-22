@@ -60,6 +60,7 @@ contract ArbiterStaking is Pausable {
 
     /**
      * Sets the registry value with the live BountyRegistry
+
      * @param _bountyRegistry Address of BountyRegistry contract
      */
     function setBountyRegistry(address _bountyRegistry) public onlyOwner {
