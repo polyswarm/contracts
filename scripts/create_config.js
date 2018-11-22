@@ -143,6 +143,7 @@ module.exports = async callback => {
   async function deployTo(uri, name, options) {
     NectarToken.setProvider(new web3.providers.HttpProvider(uri));
     OfferRegistry.setProvider(new web3.providers.HttpProvider(uri));
+    ArbiterStaking.setProvider(new web3.providers.HttpProvider(uri));
     BountyRegistry.setProvider(new web3.providers.HttpProvider(uri));
     ERC20Relay.setProvider(new web3.providers.HttpProvider(uri));
 
@@ -151,7 +152,10 @@ module.exports = async callback => {
 
     const nectarToken = await NectarToken.new({ from: from });
     const offerRegistry = await OfferRegistry.new(nectarToken.address, { from });
-    const bountyRegistry = await BountyRegistry.new(nectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION, { from });
+    const arbiterStaking = await ArbiterStaking.new(nectarToken.address, STAKE_DURATION, { from })
+    const bountyRegistry = await BountyRegistry.new(nectarToken.address, arbiterStaking.address, ARBITER_VOTE_WINDOW, { from });
+
+    arbiterStaking.setBountyRegistry(bountyRegistry.address);
 
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();

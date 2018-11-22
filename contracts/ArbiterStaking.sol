@@ -4,6 +4,7 @@ import "zeppelin-solidity/contracts/math/SafeMath.sol";
 import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
 import "zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 import "./NectarToken.sol";
+import "./BountyRegistry.sol";
 
 contract ArbiterStaking is Pausable {
     using SafeMath for uint256;
@@ -45,6 +46,7 @@ contract ArbiterStaking is Pausable {
 
     uint256 public stakeDuration;
     NectarToken internal token;
+    BountyRegistry internal registry;
 
     /**
      * Construct a new ArbiterStaking
@@ -54,6 +56,15 @@ contract ArbiterStaking is Pausable {
     constructor(address _token, uint256 _stakeDuration) Ownable() public {
         token = NectarToken(_token);
         stakeDuration = _stakeDuration;
+    }
+
+    /**
+     * Sets the registry value with the live BountyRegistry
+
+     * @param _bountyRegistry Address of BountyRegistry contract
+     */
+    function setBountyRegistry(address _bountyRegistry) public onlyOwner {
+        registry = BountyRegistry(_bountyRegistry);
     }
 
     /**
@@ -75,6 +86,21 @@ contract ArbiterStaking is Pausable {
         whenNotPaused
         returns (bool)
     {
+        require(msg.sender == address(token), "Must be called from the token.");
+        return receiveApprovalInternal(_from, _value, _tokenContract, new bytes(0));
+    }
+
+    function receiveApprovalInternal(
+        address _from,
+        uint256 _value,
+        address _tokenContract,
+        bytes
+    )
+        internal
+        whenNotPaused
+        returns (bool)
+    {
+        require(registry.isArbiter(_from), "Deposit target is not an arbiter");
         // Ensure we are depositing something
         require(_value > 0, "Zero value being deposited");
         // Ensure we are called from he right token contract
@@ -95,7 +121,7 @@ contract ArbiterStaking is Pausable {
      * @param value The amount of NCT to deposit
      */
     function deposit(uint256 value) public whenNotPaused {
-        require(receiveApproval(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
+        require(receiveApprovalInternal(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
     }
 
     /**
@@ -141,6 +167,7 @@ contract ArbiterStaking is Pausable {
      * @param value The amount of NCT to withdraw
      */
     function withdraw(uint256 value) public whenNotPaused {
+        require(deposits[msg.sender].length > 0, "Cannot withdraw without some deposits.");
         uint256 remaining = value;
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[msg.sender];
@@ -205,7 +232,8 @@ contract ArbiterStaking is Pausable {
      * @param arbiter The address of the arbiter
      * @param bountyGuid The guid of the bounty
      */
-    function recordBounty(address arbiter, uint128 bountyGuid, uint256 blockNumber) public onlyOwner {
+    function recordBounty(address arbiter, uint128 bountyGuid, uint256 blockNumber) public {
+        require(msg.sender == address(registry), "Can only be called by the BountyRegistry.");
         require(arbiter != address(0), "Invalid arbiter address");
         require(blockNumber != 0, "Invalid block number");
 
