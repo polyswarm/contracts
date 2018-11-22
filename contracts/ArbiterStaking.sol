@@ -59,11 +59,6 @@ contract ArbiterStaking is Pausable {
         stakeDuration = _stakeDuration;
     }
 
-    modifier whenHasDeposits() {
-        require(deposits[msg.sender].length > 0, "Cannot withdraw without having deposited.");
-        _;
-    }
-
     /**
      * Handle a deposit upon receiving approval for a token transfer
      * Called from NectarToken.approveAndCall
@@ -163,7 +158,8 @@ contract ArbiterStaking is Pausable {
      * Withdraw staked NCT
      * @param value The amount of NCT to withdraw
      */
-    function withdraw(uint256 value) public whenNotPaused whenHasDeposits {
+    function withdraw(uint256 value) public whenNotPaused {
+        require(deposits[msg.sender].length > 0, "Cannot withdraw without having deposited.");
         uint256 remaining = value;
         uint256 latest_block = block.number.sub(stakeDuration);
         Deposit[] storage ds = deposits[msg.sender];
