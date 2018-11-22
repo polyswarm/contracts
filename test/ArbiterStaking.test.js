@@ -12,7 +12,10 @@ require('chai')
 
 const ArbiterStaking = artifacts.require('ArbiterStaking');
 const NectarToken = artifacts.require('NectarToken');
+const BountyRegistry = artifacts.require('BountyRegistry');
 
+// From contracts/BountyRegistry.sol
+const ARBITER_VOTE_WINDOW = 100;
 // From contracts/ArbiterStaking.sol
 const STAKE_DURATION = 100;
 const MINIMUM_STAKE = 10000000 * 10 ** 18;
@@ -26,14 +29,16 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
 
   beforeEach(async function () {
     this.token = await NectarToken.new();
+    this.staking = await ArbiterStaking.new(this.token.address, STAKE_DURATION);
+    this.registry = await BountyRegistry.new(this.token.address, this.staking.address, ARBITER_VOTE_WINDOW);
 
+    this.staking.setBountyRegistry(this.registry.address);
     await [arbiter].forEach(async account => {
       await this.token.mint(account, ether(1000000000));
+      await this.registry.addArbiter(account, web3.eth.blockNumber)
     });
 
     await this.token.enableTransfers();
-
-    this.staking = await ArbiterStaking.new(this.token.address, STAKE_DURATION);
   });
 
   describe('lifecycle', function() {
@@ -118,9 +123,19 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       await this.token.approve(this.staking.address, ether('100000000'), { from: arbiter }).should.be.fulfilled;
       await this.staking.deposit(ether('100000000'), { from: arbiter }).should.be.rejectedWith(EVMRevert);
     });
+
+    it('should reject a deposit where the msg sender is not an arbiter', async function() {
+      await this.registry.removeArbiter(arbiter, web3.eth.blockNumber);
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
+      await this.staking.deposit('1', { from: arbiter }).should.be.rejectedWith(EVMRevert);
+    })
   });
 
   describe('withdrawals', function() {
+    it('should reject sender with no deposits', async function() {
+      await this.staking.withdraw('1', { from: arbiter }).should.be.rejectedWith(EVMRevert);
+    });
+
     it('should allow withdrawals after the minimum staking time', async function() {
       await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
       let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
