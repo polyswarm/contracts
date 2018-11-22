@@ -57,7 +57,7 @@ async function settleBounty(bountyregistry, from, bountyGuid) {
 }
 
 async function voteOnBounty(bountyregistry, from, bountyGuid, verdicts) {
-  return await bountyregistry.voteOnBounty(bountyGuid, verdicts, true, { from });
+  return await bountyregistry.voteOnBounty(bountyGuid, verdicts, [true], { from });
 }
 
 contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, expert1, arbiter0, arbiter1, arbiter2, arbiter3]) {
@@ -429,7 +429,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     });
 
 
-    it('should allow any arbiters to settle after 256 blocks past voting round hase closed', async function() {
+    it('should allow any arbiters to settle after 256 blocks past voting round has closed', async function() {
       const VALID_HASH_BLOCK = 256;
       let amount = ether(10);
       let bid = ether(20);

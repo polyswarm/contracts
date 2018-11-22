@@ -256,6 +256,8 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       tx.logs[0].args.from.should.be.bignumber.equal(arbiter);
       tx.logs[0].args.value.should.be.bignumber.equal(value);
 
+      // set registry as owner, so we can call recordBounty
+      await this.staking.setBountyRegistry(owner);
       for (let i = 0; i < 9; i++) {
         await this.staking.recordBounty(arbiter, i + 1, blockNumber, { from: owner }).should.be.fulfilled;
       }

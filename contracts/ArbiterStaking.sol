@@ -232,7 +232,8 @@ contract ArbiterStaking is Pausable {
      * @param arbiter The address of the arbiter
      * @param bountyGuid The guid of the bounty
      */
-    function recordBounty(address arbiter, uint128 bountyGuid, uint256 blockNumber) public onlyOwner {
+    function recordBounty(address arbiter, uint128 bountyGuid, uint256 blockNumber) public {
+        require(msg.sender == address(registry), "Can only be called by the BountyRegistry.");
         require(arbiter != address(0), "Invalid arbiter address");
         require(blockNumber != 0, "Invalid block number");
 
