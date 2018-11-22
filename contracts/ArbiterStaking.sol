@@ -53,10 +53,17 @@ contract ArbiterStaking is Pausable {
      *
      * @param _token address of NCT token to use
      */
-    constructor(address _token, address _bountyRegistry, uint256 _stakeDuration) Ownable() public {
+    constructor(address _token, uint256 _stakeDuration) Ownable() public {
         token = NectarToken(_token);
-        registry = BountyRegistry(_bountyRegistry);
         stakeDuration = _stakeDuration;
+    }
+
+    /**
+     * Sets the registry value with the live BountyRegistry
+     * @param _bountyRegistry Address of BountyRegistry contract
+     */
+    function setBountyRegistry(address _bountyRegistry) public onlyOwner {
+        registry = BountyRegistry(_bountyRegistry);
     }
 
     /**

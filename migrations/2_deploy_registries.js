@@ -1,4 +1,5 @@
 const NectarToken = artifacts.require('NectarToken');
+const ArbiterStaking = artifacts.require('ArbiterStaking');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const OfferRegistry = artifacts.require('OfferRegistry');
 
@@ -11,15 +12,23 @@ module.exports = function(deployer, network, accounts) {
     // ~4 months in blocks
     const STAKE_DURATION = 701333;
 
-    return deployer.deploy(BountyRegistry, NECTAR_ADDRESS, ARBITER_VOTE_WINDOW, STAKE_DURATION).then(() => {
+    return deployer.deploy(ArbiterStaking, NectarToken.address, STAKE_DURATION).then(arbiterStaking => {
+      bountyRegistry = deployer.deploy(BountyRegistry, NECTAR_ADDRESS, ArbiterStaking.address, ARBITER_VOTE_WINDOW);
+      arbiterStaking.setBountyRegistry(bountyRegistry);
+      return bountyRegistry;
+    })
+    .then(() => {
       return deployer.deploy(OfferRegistry, NectarToken.address);
     });
   } else {
     return deployer.deploy(NectarToken).then(() => {
-      const ARBITER_VOTE_WINDOW = 100;
       const STAKE_DURATION = 100;
-
-      return deployer.deploy(BountyRegistry, NectarToken.address, ARBITER_VOTE_WINDOW, STAKE_DURATION);
+      return deployer.deploy(ArbiterStaking, NectarToken.address, STAKE_DURATION)
+    }).then(arbiterStaking => {
+      const ARBITER_VOTE_WINDOW = 100;
+      bountyRegistry = deployer.deploy(BountyRegistry, NectarToken.address, ArbiterStaking.address, ARBITER_VOTE_WINDOW);
+      arbiterStaking.setBountyRegistry(BountyRegistry.address);
+      return bountyRegistry;
     }).then(() => {
       return deployer.deploy(OfferRegistry, NectarToken.address);
     });

@@ -133,10 +133,10 @@ contract BountyRegistry is Pausable {
      *
      * @param _token address of NCT token to use
      */
-    constructor(address _token, uint256 _arbiterVoteWindow, uint256 _stakeDuration) Ownable() public {
+    constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow) Ownable() public {
         owner = msg.sender;
         token = NectarToken(_token);
-        staking = new ArbiterStaking(_token, this, _stakeDuration);
+        staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
     }
 
