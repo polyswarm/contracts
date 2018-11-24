@@ -13,7 +13,7 @@ test:
     - pip3 install --user slither-analyzer
     - wget https://github.com/ethereum/solidity/releases/download/v0.4.25/solc-static-linux
     - chmod +x ./solc-static-linux
-    - $(python3 -m site --user-base)/bin/slither --solc ./solc-static-linux --exclude-informational --exclude-low --exclude-medium contracts/
+    - $(python3 -m site --user-base)/bin/slither --solc ./solc-static-linux --exclude uninitialized-state --exclude-informational --exclude-low --exclude-medium contracts/
 
 kick-e2e:
   tags:
@@ -25,7 +25,7 @@ kick-e2e:
     - apk --no-cache add curl jq
   script:
     - set -e
-  
+
     # kick e2e
     - >-
       E2E_PIPELINE_ID=`curl
@@ -36,11 +36,11 @@ kick-e2e:
       --form "variables[SOURCE_BRANCH]=$CI_COMMIT_REF_NAME"
       --form ref=master
       "https://gitlab.polyswarm.io/api/v4/projects/${CI_CUSTOM_PROJECT_ID_E2E}/trigger/pipeline" | jq -r ".id"`
-  
+
     # run unit tests
     - docker build -f docker/Dockerfile --cache-from polyswarm/contracts -t polyswarm/contracts .
     - docker run polyswarm/contracts
-  
+
     # poll for e2e to finish
     - >-
       while [ -z $PIPELINE_STATUS ] || [ $PIPELINE_STATUS = "pending" ] || [ $PIPELINE_STATUS = "running" ]; do
@@ -51,11 +51,11 @@ kick-e2e:
         echo "waiting for e2e pipeline ...";
         sleep 5;
       done
-  
+
     # check for success
     - >-
       if [ $PIPELINE_STATUS != "success" ]; then
         echo "failure further down the pipeline"
         exit 1
       fi
-  
+

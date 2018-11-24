@@ -56,8 +56,8 @@ async function settleBounty(bountyregistry, from, bountyGuid) {
   return await bountyregistry.settleBounty(bountyGuid, { from });
 }
 
-async function voteOnBounty(bountyregistry, from, bountyGuid, verdicts) {
-  return await bountyregistry.voteOnBounty(bountyGuid, verdicts, [true], { from });
+async function voteOnBounty(bountyregistry, from, bountyGuid, votes) {
+  return await bountyregistry.voteOnBounty(bountyGuid, votes, true, { from });
 }
 
 contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, expert1, arbiter0, arbiter1, arbiter2, arbiter3]) {

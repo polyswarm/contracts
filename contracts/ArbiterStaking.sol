@@ -252,7 +252,7 @@ contract ArbiterStaking is Pausable {
     }
 
     /**
-     * Determines the ratio of past verdicts that the arbiter has responded to
+     * Determines the ratio of past bounties that the arbiter has responded to
      *
      * @param arbiter The address of the arbiter
      * @return number of bounties responded to, number of bounties considered
