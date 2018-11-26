@@ -198,13 +198,23 @@ module.exports = async callback => {
 
       if (options && options.accounts) {
         // Take accounts 20 at a time, weird shift is for js integer division
-        for (let i = 0; i < (options.accounts.length / 20 >> 0); i++) {
+        for (let i = 0; i < (options.accounts.length); i++) {
           await Promise.all(options.accounts
-            .slice(i * 10, (i + 1) * 10)
+            .slice(i, (i + 1))
             .filter(account => web3.isAddress(account))
             .map(async account => {
-              logger.info('Minting tokens for ' + account);
-              await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+              tries = 0;
+              fail = true;
+              while (tries < 5 && fail) {
+                try {
+                  logger.info('Minting tokens for ' + account);
+                  await nectarToken.mint(account, web3.toWei(1000000000, 'ether'), { from });
+                  fail = false;
+                } catch (error) {
+                  fail = true;
+                  tries++;
+                }
+              }
             }));
         }
       }
