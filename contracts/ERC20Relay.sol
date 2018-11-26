@@ -170,7 +170,15 @@ contract ERC20Relay is Ownable {
         onlyVerifier
     {
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
-        uint256 net = amount.sub(fees);
+        uint256 net;
+        uint256 fee;
+        if (amount > fees) {
+            net = amount.sub(fees);
+            fee = fees;
+        } else {
+            net = 0;
+            fee = amount;
+        }
 
         if (withdrawals[hash].destination == address(0)) {
             withdrawals[hash] = Withdrawal(destination, net, new address[](0), false);
@@ -187,11 +195,13 @@ contract ERC20Relay is Ownable {
         w.approvals.push(msg.sender);
 
         if (w.approvals.length >= requiredVerifiers && !w.processed) {
-            if (fees != 0 && feeWallet != address(0)) {
-                token.safeTransfer(feeWallet, fees);
+            if (fee != 0 && feeWallet != address(0)) {
+                token.safeTransfer(feeWallet, fee);
             }
 
-            token.safeTransfer(destination, net);
+            if (amount > 0) {
+                token.safeTransfer(destination, net);
+            }
 
             w.processed = true;
             emit WithdrawalProcessed(destination, net, txHash, blockHash, blockNumber);
