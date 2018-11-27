@@ -59,6 +59,11 @@ contract ERC20Relay is Ownable {
         uint256 indexed blockNumber
     );
 
+    event ContestedBlock(
+        bytes32 indexed blockHash,
+        uint256 indexed blockNumber
+    );
+
     ERC20 private token;
 
     constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] _verifiers) public {
@@ -240,9 +245,12 @@ contract ERC20Relay is Ownable {
         if (anchors.length == 0 ||
             anchors[anchors.length.sub(1)].blockHash != blockHash ||
             anchors[anchors.length.sub(1)].blockNumber != blockNumber) {
+            // Emit event to alert the last anchor was never confirmed
 
-            // TODO: Check required number of sigs on last block? What to do if
-            // it doesn't validate?
+            if (anchors.length > 0 && !anchors[anchors.length.sub(1)].processed) {
+                Anchor storage last = anchors[anchors.length.sub(1)];
+                emit ContestedBlock(last.blockHash, last.blockNumber);
+            }
             anchors.push(Anchor(blockHash, blockNumber, new address[](0), false));
         }
 
