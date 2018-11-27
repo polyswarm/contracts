@@ -59,6 +59,11 @@ contract ERC20Relay is Ownable {
         uint256 indexed blockNumber
     );
 
+    event ContestedBlock(
+        bytes32 indexed blockHash,
+        uint256 indexed blockNumber
+    );
+
     ERC20 private token;
 
     constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] _verifiers) public {
@@ -170,7 +175,15 @@ contract ERC20Relay is Ownable {
         onlyVerifier
     {
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
-        uint256 net = amount.sub(fees);
+        uint256 net;
+        uint256 fee;
+        if (amount > fees) {
+            net = amount.sub(fees);
+            fee = fees;
+        } else {
+            net = 0;
+            fee = amount;
+        }
 
         if (withdrawals[hash].destination == address(0)) {
             withdrawals[hash] = Withdrawal(destination, net, new address[](0), false);
@@ -187,11 +200,13 @@ contract ERC20Relay is Ownable {
         w.approvals.push(msg.sender);
 
         if (w.approvals.length >= requiredVerifiers && !w.processed) {
-            if (fees != 0 && feeWallet != address(0)) {
-                token.safeTransfer(feeWallet, fees);
+            if (fee != 0 && feeWallet != address(0)) {
+                token.safeTransfer(feeWallet, fee);
             }
 
-            token.safeTransfer(destination, net);
+            if (amount > 0) {
+                token.safeTransfer(destination, net);
+            }
 
             w.processed = true;
             emit WithdrawalProcessed(destination, net, txHash, blockHash, blockNumber);
@@ -230,9 +245,12 @@ contract ERC20Relay is Ownable {
         if (anchors.length == 0 ||
             anchors[anchors.length.sub(1)].blockHash != blockHash ||
             anchors[anchors.length.sub(1)].blockNumber != blockNumber) {
+            // Emit event to alert the last anchor was never confirmed
 
-            // TODO: Check required number of sigs on last block? What to do if
-            // it doesn't validate?
+            if (anchors.length > 0 && !anchors[anchors.length.sub(1)].processed) {
+                Anchor storage last = anchors[anchors.length.sub(1)];
+                emit ContestedBlock(last.blockHash, last.blockNumber);
+            }
             anchors.push(Anchor(blockHash, blockNumber, new address[](0), false));
         }
 
