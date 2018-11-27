@@ -24,8 +24,7 @@ module.exports = {
       port: process.env.port || 8545,
       network_id: '*',
       // Need to lower this until contracts#74 is resolved
-      gas: 7000000,
-      gasPrice: 20000000000,
+      gasPrice: 100000000000,
       from,
     },
     rinkeby: {
