@@ -155,7 +155,7 @@ module.exports = async callback => {
     const arbiterStaking = await ArbiterStaking.new(nectarToken.address, STAKE_DURATION, { from })
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, arbiterStaking.address, ARBITER_VOTE_WINDOW, { from });
 
-    arbiterStaking.setBountyRegistry(bountyRegistry.address);
+    await arbiterStaking.setBountyRegistry(bountyRegistry.address);
 
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();
