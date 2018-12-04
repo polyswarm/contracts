@@ -22,6 +22,8 @@ module.exports = async callback => {
     process.exit(1);
   }
 
+  var force = args.force;
+
   const timeout = typeof args.timeout === 'number' ? args.timeout : DEFAULT_TIMEOUT;
 
   setTimeout(() => {
@@ -31,7 +33,7 @@ module.exports = async callback => {
 
   await checkGethDeployConditions(args.home);
   await checkGethDeployConditions(args.side);
-  await migrateIfMissingABIOrConfig(args.consul);
+  await migrateIfMissingABIOrConfig(args.consul, force);
 
   callback();
 }
@@ -105,7 +107,7 @@ async function checkGethDeployConditions(chainUrl) {
 }
 
 
-async function migrateIfMissingABIOrConfig(consulConnectionURL) {
+async function migrateIfMissingABIOrConfig(consulConnectionURL, force) {
   const consulUrl = new url.parse(consulConnectionURL);
   const consul = require('consul')({ host: consulUrl.hostname, port: consulUrl.port, promisify: fromCallback, headers }, CONSUL_TIMEOUT);
   const paths = [ `/ArbiterStaking`,
@@ -148,9 +150,7 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL) {
 
   }
 
-  if (missingABIOrConfig
-    || await contractDiffExists(args.consul, args.home, 'homechain', args['poly-sidechain-name'], headers)
-    || await contractDiffExists(args.consul, args.side, 'sidechain', args['poly-sidechain-name'], headers)) {
+  if (missingABIOrConfig || force) {
 
     try {
       const promise = spawn('truffle', ['compile']);
