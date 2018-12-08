@@ -150,12 +150,12 @@ module.exports = async callback => {
     const from = options && options[`${name}_contracts_owner`] ? options[`${name}_contracts_owner`] : web3.eth.accounts[0];
     logger.info(`Deploying contracts from: ${from}`);
 
-    const nectarToken = await NectarToken.new({ from: from });
+    const nectarToken = await NectarToken.new({ from });
     const offerRegistry = await OfferRegistry.new(nectarToken.address, { from });
     const arbiterStaking = await ArbiterStaking.new(nectarToken.address, STAKE_DURATION, { from })
     const bountyRegistry = await BountyRegistry.new(nectarToken.address, arbiterStaking.address, ARBITER_VOTE_WINDOW, { from });
 
-    await arbiterStaking.setBountyRegistry(bountyRegistry.address);
+    await arbiterStaking.setBountyRegistry(bountyRegistry.address, { from });
 
     const net = new Net(new web3.providers.HttpProvider(uri));
     const chainId = await net.getId();

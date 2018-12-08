@@ -14,9 +14,6 @@ if (process.env.OPTIONS && fs.existsSync(process.env.OPTIONS)) {
   }
 }
 
-// if we have options with contract owners set use the homechain contracts owner or default account
-const from = options && options.homechain_contracts_owner ? options.homechain_contracts_owner : null;
-
 module.exports = {
   networks: {
     development: {
@@ -25,7 +22,6 @@ module.exports = {
       network_id: '*',
       // Need to lower this until contracts#74 is resolved
       gasPrice: 100000000000,
-      from,
     },
     rinkeby: {
       host: 'localhost',
