@@ -39,6 +39,10 @@ contract ArbiterStaking is Pausable {
         uint256 blockNumber
     );
 
+    event BountyVoteRecorded(
+        address arbiter
+    );
+
     uint256 public numBounties;
     mapping(uint128 => bool) public bounties;
     mapping(address => uint256) public bountyResponses;
@@ -249,6 +253,8 @@ contract ArbiterStaking is Pausable {
             bountyResponseByGuidAndAddress[bountyGuid][arbiter] = true;
             bountyResponses[arbiter] = bountyResponses[arbiter].add(1);
         }
+
+        emit BountyVoteRecorded(arbiter);
     }
 
     /**
