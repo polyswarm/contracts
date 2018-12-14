@@ -9,6 +9,8 @@ contract ERC20Relay is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for ERC20;
 
+    string public constant VERSION = "1.0.0";
+
     /* Verifiers */
     uint256 constant MINIMUM_VERIFIERS = 3;
     uint256 public requiredVerifiers;

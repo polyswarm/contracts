@@ -11,7 +11,7 @@ contract BountyRegistry is Pausable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
-    string public constant VERSION = "0.3.2";
+    string public constant VERSION = "1.0.0";
 
     struct Bounty {
         uint128 guid;
@@ -88,14 +88,13 @@ contract BountyRegistry is Pausable {
     );
 
     event QuorumReached(
-        uint128 bountyGuid,
-        uint256 block
+        uint128 bountyGuid
     );
 
-    event BountySettled(
+    event SettledBounty(
         uint128 bountyGuid,
-        uint256 block,
-        address settler
+        address settler,
+        uint256 payout
     );
 
     ArbiterStaking public staking;
@@ -445,7 +444,7 @@ contract BountyRegistry is Pausable {
         if ((bountyVotes.length == arbiterCount || quorumCount == bounty.numArtifacts) && !bounty.quorumReached)  {
             bounty.quorumReached = true;
             bounty.quorumBlock = block.number.sub(bountiesByGuid[bountyGuid].expirationBlock);
-            emit QuorumReached(bountyGuid, block.number);
+            emit QuorumReached(bountyGuid);
         }
 
         emit NewVote(bountyGuid, votes, bounty.numArtifacts, msg.sender);
@@ -613,6 +612,7 @@ contract BountyRegistry is Pausable {
             }
         }
 
+        uint256 payout = 0;
         uint256 bountyRefund;
         uint256 arbiterReward;
         uint256[] memory expertRewards;
@@ -623,20 +623,22 @@ contract BountyRegistry is Pausable {
         // Disburse rewards
         if (bountyRefund != 0 && bounty.author == msg.sender) {
             token.safeTransfer(bounty.author, bountyRefund);
+            payout = payout.add(bountyRefund);
         }
 
         for (uint256 i = 0; i < assertions.length; i++) {
             if (expertRewards[i] != 0 && assertions[i].author == msg.sender) {
                 token.safeTransfer(assertions[i].author, expertRewards[i]);
+                payout = payout.add(expertRewards[i]);
             }
         }
 
         if (arbiterReward != 0 && bounty.assignedArbiter == msg.sender) {
             token.safeTransfer(bounty.assignedArbiter, arbiterReward);
+            payout = payout.add(arbiterReward);
         }
 
-        emit BountySettled(bountyGuid, block.number, msg.sender);
-
+        emit SettledBounty(bountyGuid, msg.sender, payout);
     }
 
     /**

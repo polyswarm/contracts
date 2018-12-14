@@ -14,6 +14,7 @@ contract ArbiterStaking is Pausable {
     uint256 public constant MAXIMUM_STAKE = 100000000 * 10 ** 18;
     uint8 public constant VOTE_RATIO_NUMERATOR = 9;
     uint8 public constant VOTE_RATIO_DENOMINATOR = 10;
+    string public constant VERSION = "1.0.0";
 
     // Deposits
     struct Deposit {

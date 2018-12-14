@@ -1,5 +1,5 @@
 import ether from './helpers/ether';
-import advanceToBlock, { advanceBlock } from './helpers/advanceToBlock';
+import advanceToBlock, { advanceBlock, advanceBlocks } from './helpers/advanceToBlock';
 import EVMRevert from './helpers/EVMRevert';
 import utils from 'ethereumjs-util';
 import BN from 'bn.js';
@@ -170,7 +170,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       round = await this.bountyregistry.getCurrentRound(guid);
       round.should.be.bignumber.equal(1);
@@ -178,7 +178,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       round = await this.bountyregistry.getCurrentRound(guid);
       round.should.be.bignumber.equal(2);
@@ -188,7 +188,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       round = await this.bountyregistry.getCurrentRound(guid);
       round.should.be.bignumber.equal(3);
@@ -206,7 +206,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce, receipt} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1).should.be.fulfilled;
       let index = receipt.logs[0].args.index;
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, index, nonce, 0x1, "foo").should.be.fulfilled;
 
@@ -237,7 +237,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let bid = ether(20);
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IPFS_README, 1, 10);
       let guid = tx.logs[0].args.guid;
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
       await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x1).should.be.rejectedWith(EVMRevert);
     });
 
@@ -262,7 +262,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 35);
+      await advanceBlocks(35);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x0);
@@ -283,13 +283,13 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       await settleBounty(this.bountyregistry, arbiter0, guid).should.be.rejectedWith(EVMRevert);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
       await settleBounty(this.bountyregistry, arbiter0, guid).should.be.rejectedWith(EVMRevert);
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x0);
       await settleBounty(this.bountyregistry, arbiter0, guid).should.be.rejectedWith(EVMRevert);
@@ -304,19 +304,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x0);
       await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, expert0, guid);
       await settleBounty(this.bountyregistry, expert1, guid);
@@ -353,7 +353,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 35);
+      await advanceBlocks(35);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x3).should.be.fulfilled;
@@ -367,12 +367,12 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3);
 
@@ -390,18 +390,18 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x3);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, expert0, guid);
       await settleBounty(this.bountyregistry, expert1, guid);
@@ -438,23 +438,23 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x3);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, expert0, guid);
       await settleBounty(this.bountyregistry, expert1, guid);
 
-      await advanceToBlock(web3.eth.blockNumber + VALID_HASH_BLOCK);
+      await advanceBlocks(VALID_HASH_BLOCK);
 
       await settleBounty(this.bountyregistry, arbiter2, guid);
 
@@ -482,16 +482,16 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let guid = tx.logs[0].args.guid;
 
       // wait for assersion period to pass
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       // wait for reveal period to pass
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x3);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, user0, guid);
       await settleBounty(this.bountyregistry, arbiter0, guid);
@@ -522,16 +522,16 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x0, 0x3);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x0, 0x3);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x3, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x3, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x3);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, user0, guid);
       await settleBounty(this.bountyregistry, arbiter0, guid);
@@ -562,19 +562,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
       let rewards = await this.bountyregistry.calculateBountyRewards(guid);
 
       await settleBounty(this.bountyregistry, expert0, guid);
@@ -608,19 +608,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x2);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x2);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x2);
       await voteOnBounty(this.bountyregistry, arbiter3, guid, 0x2);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, expert0, guid);
       await settleBounty(this.bountyregistry, expert1, guid);
@@ -656,18 +656,18 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       // only revealing one assertion
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter2, guid, 0x3);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, expert0, guid);
       await settleBounty(this.bountyregistry, expert1, guid);
@@ -710,7 +710,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1).should.be.rejectedWith(EVMRevert);
     });
@@ -727,16 +727,16 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x1, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x1, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + 10);
+      await advanceBlocks(10);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
 
-      await advanceToBlock(web3.eth.blockNumber + ASSERTION_REVEAL_WINDOW);
+      await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
 
-      await advanceToBlock(web3.eth.blockNumber + ARBITER_VOTE_WINDOW);
+      await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       await settleBounty(this.bountyregistry, arbiter0, guid).should.be.fulfilled;
     });
