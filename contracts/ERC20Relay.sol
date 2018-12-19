@@ -116,7 +116,7 @@ contract ERC20Relay is Ownable {
         require(verifiers[index] == addr, "Verifier address not present in verifiers array");
         verifiers[index] = verifiers[verifiers.length.sub(1)];
         delete verifierAddressToIndex[addr];
-        verfiers.length = verfiers.length.sub(1);
+        verifiers.length = verifiers.length.sub(1);
 
         requiredVerifiers = calculateRequiredVerifiers();
         fees = calculateFees();
