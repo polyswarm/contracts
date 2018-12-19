@@ -235,7 +235,7 @@ contract ERC20Relay is Ownable {
         for (uint256 i = 0; i < length; i++) {
             if (w.approvals[i] == msg.sender) {
                 w.approvals[i] = w.approvals[length.sub(1)];
-                delete w.approvals[i];
+                delete w.approvals[length.sub(1)];
                 w.approvals.length = w.approvals.length.sub(1);
                 break;
             }
@@ -279,7 +279,7 @@ contract ERC20Relay is Ownable {
         for (uint256 i = 0; i < length; i++) {
             if (a.approvals[i] == msg.sender) {
                 a.approvals[i] = a.approvals[length.sub(1)];
-                delete a.approvals[i];
+                delete a.approvals[length.sub(1)];
                 a.approvals.length = a.approvals.length.sub(1);
                 break;
             }
