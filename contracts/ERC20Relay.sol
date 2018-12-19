@@ -176,6 +176,7 @@ contract ERC20Relay is Ownable {
         external
         onlyVerifier
     {
+        require(destination != address(0), "Invalid destination address");
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
         uint256 net;
         uint256 fee;
