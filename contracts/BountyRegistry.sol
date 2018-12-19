@@ -217,6 +217,7 @@ contract BountyRegistry is Pausable {
         require(bytes(artifactURI).length > 0, "Invalid artifact URI");
         // Check that our number of artifacts is valid
         require(numArtifacts <= 256, "Too many artifacts in bounty");
+        require(numArtifacts > 0, "Not enough artifacts in bounty");
         // Check that our duration is non-zero and less than or equal to the max
         require(durationBlocks > 0 && durationBlocks <= MAX_DURATION, "Invalid bounty duration");
 
