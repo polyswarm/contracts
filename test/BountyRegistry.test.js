@@ -163,7 +163,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await postBounty(this.token, this.bountyregistry, user0, amount, "", 0, 10).should.be.rejectedWith(EVMRevert);
     });
 
-    it('should report the proper round for a bounty during its lifecycle', async function() {
+    it('should report the proper round for a bounty during its life cycle', async function() {
       let amount = ether(10);
       let bid = ether(20);
       let tx = await postBounty(this.token, this.bountyregistry, user0, amount, IPFS_README, 2, 10);

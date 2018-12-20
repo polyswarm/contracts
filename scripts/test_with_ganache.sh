@@ -8,8 +8,8 @@ LINT_OUTPUT="$(node ./node_modules/solium/bin/solium.js -d contracts/)"
 SOLIUM_EXIT_CODE=$?
 
 if [ $SOLIUM_EXIT_CODE -eq 1 ]; then
-	>&2 echo "Error while linting"
-	>&2 echo $LINT_OUTPUT
+    >&2 echo "Error while linting"
+    >&2 echo $LINT_OUTPUT
     exit 1
 fi
 
@@ -17,14 +17,14 @@ fi
 echo $LINT_OUTPUT | grep "warning"
 
 if [ $? -eq 0 ]; then
-	>&2 echo "Warning while linting"
-	>&2 echo $LINT_OUTPUT
+    >&2 echo "Warning while linting"
+    >&2 echo $LINT_OUTPUT
     exit 1
 elif [ $SOLIUM_EXIT_CODE -eq 0 ]; then
-	# run unit tests
-	truffle test
+    # run unit tests
+    truffle test
 else
-	>&2 echo "Solium exited with $SOLIUM_EXIT_CODE"
-	>&2 echo $LINT_OUTPUT
-	exit 1
+    >&2 echo "Solium exited with $SOLIUM_EXIT_CODE"
+    >&2 echo $LINT_OUTPUT
+    exit 1
 fi

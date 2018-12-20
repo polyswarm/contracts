@@ -9,8 +9,8 @@ migration_exit_code=$?
 if [ $migration_exit_code -eq 1 ]; then
     exit 1
 elif [ $migration_exit_code -eq 2 ]; then
-	>&2 echo "Existing ABIs and config - skipping create_config.js"
-	exit 0
+    >&2 echo "Existing ABIs and config - skipping create_config.js"
+    exit 0
 fi
 
 if [ -z $DB ]; then

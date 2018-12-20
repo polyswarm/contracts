@@ -2,7 +2,7 @@ const { createLogger, format, transports } = require('winston');
 const { combine, timestamp, label, json, simple } = format;
 
 module.exports = (log_type) => {
-  /* 
+  /*
     This module returns a function which accepts a string
     and returns a winston logger.
     Args:
@@ -12,11 +12,11 @@ module.exports = (log_type) => {
       function: A function which returns a winston logger
 
     Notes:
-      Just keep in mind that this module exports a function that returns a winston logger, 
+      Just keep in mind that this module exports a function that returns a winston logger,
       not a winston logger directly.
   */
   let some_format;
-  
+
   // All of the canonicalization will happen here.
   const log_type_checked = (log_type == 'json' ? 'json' : 'text');
 
