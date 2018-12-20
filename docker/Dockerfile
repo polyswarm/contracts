@@ -2,7 +2,7 @@ FROM node:alpine
 
 # Needed to fix permissions issue when deploying to hive
 RUN npm config set unsafe-perm true && \
-    npm install truffle -g
+    npm install truffle@4.1.14 -g
 
 COPY package.json package-lock.json ./
 
