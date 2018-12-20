@@ -494,17 +494,24 @@ contract BountyRegistry is Pausable {
         uint256 i = 0;
         uint256 j = 0;
 
-        if (assertions.length == 0) {
+        if (assertions.length == 0 && votes.length == 0) {
             // Refund the bounty amount and fees to ambassador
+            bountyRefund = bounty.numArtifacts.mul(bounty.amount.add(BOUNTY_FEE));
+        } else if (assertions.length == 0) {
+            // Refund the bounty amount ambassador
             bountyRefund = bounty.amount.mul(bounty.numArtifacts);
         } else if (votes.length == 0) {
-            // Refund bids and distribute the bounty amount evenly to experts
+            // Refund bids, fees, and distribute the bounty amount evenly to experts
+            bountyRefund = BOUNTY_FEE.mul(bounty.numArtifacts);
             for (j = 0; j < assertions.length; j++) {
+                expertRewards[j] = expertRewards[j].add(ASSERTION_FEE);
                 expertRewards[j] = expertRewards[j].add(assertions[j].bid);
                 expertRewards[j] = expertRewards[j].add(bounty.amount.div(assertions.length));
+                expertRewards[j] = expertRewards[j].mul(bounty.numArtifacts);
             }
         } else {
             for (i = 0; i < bounty.numArtifacts; i++) {
+                ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
                 bool consensus = quorumVotes[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= votes.length.sub(quorumVotes[i]).mul(BENIGN_VOTE_COEFFICIENT);
 
                 for (j = 0; j < assertions.length; j++) {
@@ -555,15 +562,14 @@ contract BountyRegistry is Pausable {
 
                         if (malicious == consensus) {
                             expertRewards[j] = expertRewards[j].add(assertions[j].bid.mul(ap.loserPool).div(ap.winnerPool));
-                            expertRewards[j] = expertRewards[j].add(bounty.amount.mul(ap.loserPool).div(ap.winnerPool));
+                            expertRewards[j] = expertRewards[j].add(bounty.amount.mul(assertions[j].bid).div(ap.winnerPool));
                         } else {
                             expertRewards[j] = expertRewards[j].sub(assertions[j].bid);
                         }
                     }
                 }
-
-                delete ap;
             }
+            delete ap;
         }
 
         // Calculate rewards
