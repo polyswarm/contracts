@@ -25,6 +25,7 @@ const ASSERTION_REVEAL_WINDOW = 25;
 const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
 const STARTING_EXPERT_BALANCE = 100000000;
+const STARTING_AMBASSADOR_BALANCE = 100000000;
 const STARTING_ARBITER_BALANCE = 90000000;
 
 function randomGuid() {
@@ -706,7 +707,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bountyFee
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE));
+      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE));
     });
 
     it('should refund bounty amount to ambassador if there are no assertions', async function() {
@@ -769,7 +770,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(amount));
+      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE).sub(amount));
     });
 
     it('should refund a portion of bounty amount to ambassador if there are no assertions for one of the artifacts', async function() {
@@ -805,7 +806,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bountyFee - bounty_amount /2
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(BOUNTY_FEE).sub(amount.div(2)));
+      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE).sub(BOUNTY_FEE).sub(amount.div(2)));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
@@ -845,7 +846,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bountyFee
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(BOUNTY_FEE));
+      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE).sub(BOUNTY_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
