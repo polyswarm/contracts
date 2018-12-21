@@ -569,7 +569,6 @@ contract BountyRegistry is Pausable {
                     }
                 }
             }
-            delete ap;
         }
 
         // Calculate rewards
