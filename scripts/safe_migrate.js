@@ -17,7 +17,7 @@ rpc.raw = Promise.promisify(rpc.raw);
 
 module.exports = async callback => {
   if (!args.home || !args.side || !args.consul || !args['poly-sidechain-name']) {
-    logger.info('Usage: truffle exec safe_mirgrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
+    logger.info('Usage: truffle exec safe_migrate.js --home=<homechain_url> --side=<sidechain_url> --poly-sidechain-name=<name> --consul=<consul_url>');
     callback('missing args!!!');
     process.exit(1);
   }
@@ -169,7 +169,7 @@ async function migrateIfMissingABIOrConfig(consulConnectionURL, force) {
       process.exit(1);
     }
   } else {
-    logger.info('Already have config, ABIs, and no differnce in contracts found.');
+    logger.info('Already have config, ABIs, and no difference in contracts found.');
     process.exit(2);
   }
 

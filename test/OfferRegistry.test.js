@@ -37,7 +37,7 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
 
   before(async () => {
     let nectar = await NectarToken.new();
-    
+
     registry = await OfferRegistry.new(nectar.address);
     offerChannelID = Math.floor(Math.random() * 1000)
     guid = Math.floor(Math.random() * 1000)
@@ -64,7 +64,7 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
     offerState.push(ambassadorBalance); // balance in nectar ambassador
     offerState.push(expertBalance); // balance in nectar expert
     offerState.push(nectarAddress); // token address
-    offerState.push(guid); // A globally-unique identi er for the Listing.
+    offerState.push(guid); // A globally-unique identifier for the Listing.
     offerState.push(offerAmount); // The Offer Amount.
     offerState.push(artifactHash); // Cryptographic hash of the Artifact.
     offerState.push(IPFSUri); // The URI of the Artifact.
@@ -73,7 +73,7 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
     offerState.push(commitment); // has the expert made commitment
     offerState.push(assertion); // “malicious” or “benign”
     offerState.push(metadata); // Information derived during Assertion generation
-    
+
     offerArray = offerState;
     offerStateBytes = Utils.marshallState(offerState);
   })

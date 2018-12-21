@@ -41,13 +41,13 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
     await this.token.enableTransfers();
   });
 
-  describe('lifecycle', function() {
+  describe('life cycle', function() {
     it('should be owned', async function() {
       let o = await this.staking.owner();
       o.should.be.equal(owner);
     });
 
-    it('should be pausable', async function() {
+    it('should be pauseable', async function() {
       await this.staking.pause();
       await this.staking.deposit('1', { from: arbiter }).should.be.rejectedWith(EVMRevert);
       await this.staking.unpause();
@@ -230,7 +230,7 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
   });
 
   describe('arbiter', function() {
-    it('should correctly detect elligible arbiters before bounty record', async function() {
+    it('should correctly detect eligible arbiters before bounty record', async function() {
       let is_arbiter = await this.staking.isEligible(arbiter);
       is_arbiter.should.be.equal(false);
 
@@ -244,7 +244,7 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       is_arbiter.should.be.equal(true);
     });
 
-    it('should correctly detect elligible arbiters with bounty record', async function() {
+    it('should correctly detect eligible arbiters with bounty record', async function() {
       let is_arbiter = await this.staking.isEligible(arbiter);
       is_arbiter.should.be.equal(false);
 

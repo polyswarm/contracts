@@ -2,7 +2,7 @@ export default async promise => {
   try {
     await promise;
   } catch (error) {
-    // TODO: Check jump destination to destinguish between a throw
+    // TODO: Check jump destination to distinguish between a throw
     //       and an actual invalid jump.
     const invalidOpcode = error.message.search('invalid opcode') >= 0;
     // TODO: When we contract A calls contract B, and B throws, instead

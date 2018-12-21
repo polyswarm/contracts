@@ -116,7 +116,7 @@ contract ERC20Relay is Ownable {
         require(verifiers[index] == addr, "Verifier address not present in verifiers array");
         verifiers[index] = verifiers[verifiers.length.sub(1)];
         delete verifierAddressToIndex[addr];
-        verifiers.length--;
+        verifiers.length = verifiers.length.sub(1);
 
         requiredVerifiers = calculateRequiredVerifiers();
         fees = calculateFees();
@@ -176,6 +176,7 @@ contract ERC20Relay is Ownable {
         external
         onlyVerifier
     {
+        require(destination != address(0), "Invalid destination address");
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
         uint256 net;
         uint256 fee;
@@ -235,8 +236,8 @@ contract ERC20Relay is Ownable {
         for (uint256 i = 0; i < length; i++) {
             if (w.approvals[i] == msg.sender) {
                 w.approvals[i] = w.approvals[length.sub(1)];
-                delete w.approvals[i];
-                w.approvals.length--;
+                delete w.approvals[length.sub(1)];
+                w.approvals.length = w.approvals.length.sub(1);
                 break;
             }
         }
@@ -279,8 +280,8 @@ contract ERC20Relay is Ownable {
         for (uint256 i = 0; i < length; i++) {
             if (a.approvals[i] == msg.sender) {
                 a.approvals[i] = a.approvals[length.sub(1)];
-                delete a.approvals[i];
-                a.approvals.length--;
+                delete a.approvals[length.sub(1)];
+                a.approvals.length = a.approvals.length.sub(1);
                 break;
             }
         }

@@ -22,11 +22,11 @@ module.exports = async (consulConnectionURL, chainUrl, chainName, polySidechainN
 	const [chainConfig, resHeaders] = response;
 
 	if (resHeaders.statusCode !== 200 && resHeaders.statusCode !== 404) {
-		logger.error(`Recieved status code error: ${resHeaders.statusCode}, bailing.`);
+		logger.error(`Received status code error: ${resHeaders.statusCode}, bailing.`);
 		process.exit(1);
 	} else if (resHeaders.statusCode === 404) {
 		logger.info('Didn\'t find consul config, proceeding.');
-		logger.info('Recieved status code error: ' + resHeaders.statusCode);
+		logger.info('Received status code error: ' + resHeaders.statusCode);
 		return true;
 	}
 

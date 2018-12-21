@@ -23,7 +23,7 @@ let metadata
 let nectar;
 let nectaraddress;
 let publicWebsocketUri = '127.0.0.1:37713'
-// offer channel contrat
+// offer channel contract
 let msig
 
 let registry
@@ -205,7 +205,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     offerState.push(20) // balance in nectar ambassador
     offerState.push(0) // balance in nectar expert
     offerState.push(nectaraddress) // token address
-    offerState.push(guid) // A globally-unique identi er for the Listing.
+    offerState.push(guid) // A globally-unique identifier for the Listing.
     offerState.push(1) // The Offer Amount.
     offerState.push(artifactHash) // Cryptographic hash of the Artifact.
     offerState.push(IPFSUri) // The URI of the Artifact.
@@ -238,7 +238,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     offerState.push(200) // new balance in nectar ambassador
     offerState.push(0) // balance in nectar expert
     offerState.push(nectaraddress) // token address
-    offerState.push(guid) // A globally-unique identi er for the Listing.
+    offerState.push(guid) // A globally-unique identifier for the Listing.
     offerState.push(1) // The Offer Amount.
     offerState.push(artifactHash) // Cryptographic hash of the Artifact.
     offerState.push(IPFSUri) // The URI of the Artifact.
@@ -290,7 +290,7 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
     offerState.push(200) // balance in nectar ambassador
     offerState.push(0) // balance in nectar expert
     offerState.push(nectaraddress) // token address
-    offerState.push(guid) // A globally-unique identi er for the Listing.
+    offerState.push(guid) // A globally-unique identifier for the Listing.
     offerState.push(1) // The Offer Amount.
     offerState.push(artifactHash) // Cryptographic hash of the Artifact.
     offerState.push(IPFSUri) // The URI of the Artifact.
@@ -479,13 +479,13 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   it("should get ambassador balance", async () => {
     const raw = await msig.getBalanceA(s0marshall);
-    
+
     assert.equal(Web3Utils.hexToNumber(raw), 20);
   })
 
   it("should get expert balance", async () => {
     const raw = await msig.getBalanceB(s0marshall);
-    
+
     assert.equal(Web3Utils.hexToNumber(raw), 0);
   })
 
@@ -497,13 +497,13 @@ contract('OfferMultiSig', function([owner, ambassador, expert]) {
 
   it("should get channel total", async () => {
     const raw = await msig.getTotal(s0marshall);
-    
+
     assert.equal(Web3Utils.hexToNumber(raw), 20);
   })
 
   it("should get channel total", async () => {
     const raw = await msig.getTotal(s0marshall);
-    
+
     assert.equal(Web3Utils.hexToNumber(raw), 20);
   })
 
