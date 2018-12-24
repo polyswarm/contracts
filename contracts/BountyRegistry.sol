@@ -102,7 +102,7 @@ contract BountyRegistry is Pausable {
 
     // 0.0625NCT (1/16)
     uint256 public constant BOUNTY_FEE = 62500000000000000;
-    uint256 public constant ASSERTION_FEE = 62500000000000000;
+    uint256 public constant ASSERTION_FEE = 31250000000000000;
     uint256 public constant BOUNTY_AMOUNT_MINIMUM = 62500000000000000;
     uint256 public constant ASSERTION_BID_MINIMUM = 62500000000000000;
     uint256 public constant ARBITER_LOOKBACK_RANGE = 100;
