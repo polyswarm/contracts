@@ -115,6 +115,7 @@ contract ERC20Relay is Ownable {
         uint256 index = verifierAddressToIndex[addr];
         require(verifiers[index] == addr, "Verifier address not present in verifiers array");
         verifiers[index] = verifiers[verifiers.length.sub(1)];
+        verifierAddressToIndex[verifiers[verifiers.length.sub(1)]] = index;
         delete verifierAddressToIndex[addr];
         verifiers.length = verifiers.length.sub(1);
 
@@ -176,17 +177,11 @@ contract ERC20Relay is Ownable {
         external
         onlyVerifier
     {
+        require(amount > fees, "Withdrawal amount is less than or equal to fees");
         require(destination != address(0), "Invalid destination address");
+
         bytes32 hash = keccak256(abi.encodePacked(txHash, blockHash, blockNumber));
-        uint256 net;
-        uint256 fee;
-        if (amount > fees) {
-            net = amount.sub(fees);
-            fee = fees;
-        } else {
-            net = 0;
-            fee = amount;
-        }
+        uint256 net = amount.sub(fees);
 
         if (withdrawals[hash].destination == address(0)) {
             withdrawals[hash] = Withdrawal(destination, net, new address[](0), false);
@@ -203,13 +198,12 @@ contract ERC20Relay is Ownable {
         w.approvals.push(msg.sender);
 
         if (w.approvals.length >= requiredVerifiers && !w.processed) {
-            if (fee != 0 && feeWallet != address(0)) {
-                token.safeTransfer(feeWallet, fee);
+            if (fees != 0 && feeWallet != address(0)) {
+                token.safeTransfer(feeWallet, fees);
             }
 
-            if (amount > 0) {
-                token.safeTransfer(destination, net);
-            }
+            // We require that amount > fees therefore net > 0
+            token.safeTransfer(destination, net);
 
             w.processed = true;
             emit WithdrawalProcessed(destination, net, txHash, blockHash, blockNumber);

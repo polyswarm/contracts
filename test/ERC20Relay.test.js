@@ -131,6 +131,13 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
       is_verifier = await this.relay.isVerifier('0x0000000000000000000000000000000000000001');
       is_verifier.should.equal(false);
     });
+
+    it('regression test: remove verifiers', async function () {
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000001').should.be.fulfilled;
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000002').should.be.fulfilled;
+      await this.relay.removeVerifier('0x0000000000000000000000000000000000000001').should.be.fulfilled;
+      await this.relay.removeVerifier('0x0000000000000000000000000000000000000002').should.be.fulfilled;
+    })
   });
 
   describe('withdrawals', function() {
@@ -210,6 +217,16 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
       tx.logs.length.should.be.equal(1);
 
       await this.relay.unapproveWithdrawal(txHash, blockHash, blockNumber, { from: verifier0 }).should.be.rejectedWith(EVMRevert);
+    });
+
+    it('regression test: should not allow withdrawals less than or equal to fees', async function () {
+      let amount = await this.relay.fees();
+      let tx = await this.token.transfer(this.relay.address, amount, { from: user0 });
+      let txHash = tx['tx'];
+      let blockHash = tx['receipt']['blockHash'];
+      let blockNumber = tx['receipt']['blockHash'];
+
+      await this.relay.approveWithdrawal(user0, amount, txHash, blockHash, blockNumber, { from: verifier0 }).should.be.rejectedWith(EVMRevert);
     });
   });
 
