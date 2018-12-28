@@ -131,6 +131,13 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
       is_verifier = await this.relay.isVerifier('0x0000000000000000000000000000000000000001');
       is_verifier.should.equal(false);
     });
+
+    it('regression test: remove verifiers', async function () {
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000001').should.be.fulfilled;
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000002').should.be.fulfilled;
+      await this.relay.removeVerifier('0x0000000000000000000000000000000000000001').should.be.fulfilled;
+      await this.relay.removeVerifier('0x0000000000000000000000000000000000000002').should.be.fulfilled;
+    })
   });
 
   describe('withdrawals', function() {
