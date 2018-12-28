@@ -218,6 +218,16 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
 
       await this.relay.unapproveWithdrawal(txHash, blockHash, blockNumber, { from: verifier0 }).should.be.rejectedWith(EVMRevert);
     });
+
+    it('regression test: should not allow withdrawals less than or equal to fees', async function () {
+      let amount = await this.relay.fees();
+      let tx = await this.token.transfer(this.relay.address, amount, { from: user0 });
+      let txHash = tx['tx'];
+      let blockHash = tx['receipt']['blockHash'];
+      let blockNumber = tx['receipt']['blockHash'];
+
+      await this.relay.approveWithdrawal(user0, amount, txHash, blockHash, blockNumber, { from: verifier0 }).should.be.rejectedWith(EVMRevert);
+    });
   });
 
   describe('anchors', function() {
