@@ -11,6 +11,19 @@ contract ERC20Relay is Ownable {
 
     string public constant VERSION = "1.0.0";
 
+    /* Managers */
+    address public verifierManager;
+    address public feeManager;
+
+    event NewVerifierManager(
+        address indexed previousManager,
+        address indexed newManager
+    );
+    event NewFeeManager(
+        address indexed previousManager,
+        address indexed newManager
+    );
+
     /* Verifiers */
     uint256 constant MINIMUM_VERIFIERS = 3;
     uint256 public requiredVerifiers;
@@ -72,6 +85,10 @@ contract ERC20Relay is Ownable {
         require(_token != address(0), "Invalid token address");
         require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
 
+        // If set to address(0), onlyVerifierManager and onlyFeeManager are equivalent to onlyOwner
+        verifierManager = address(0);
+        feeManager = address(0);
+
         // Dummy verifier at index 0
         verifiers.push(address(0));
 
@@ -94,8 +111,35 @@ contract ERC20Relay is Ownable {
         revert("Do not allow sending Eth to this contract");
     }
 
-    // TODO: Allow existing verifiers to vote on adding/removing others
-    function addVerifier(address addr) external onlyOwner {
+    modifier onlyVerifierManager() {
+        if (verifierManager == address(0)) {
+            require(msg.sender == owner, "Not a verifier manager");
+        } else {
+            require(msg.sender == verifierManager, "Not a verifier manager");
+        }
+        _;
+    }
+
+    function setVerifierManager(address newVerifierManager) external onlyOwner {
+        emit NewVerifierManager(verifierManager, newVerifierManager);
+        verifierManager = newVerifierManager;
+    }
+
+    modifier onlyFeeManager() {
+        if (feeManager == address(0)) {
+            require(msg.sender == owner, "Not a fee manager");
+        } else {
+            require(msg.sender == feeManager, "Not a fee manager");
+        }
+        _;
+    }
+
+    function setFeeManager(address newFeeManager) external onlyOwner {
+        emit NewFeeManager(feeManager, newFeeManager);
+        feeManager = newFeeManager;
+    }
+
+    function addVerifier(address addr) external onlyVerifierManager {
         require(addr != address(0), "Invalid verifier address");
         require(verifierAddressToIndex[addr] == 0, "Address is already a verifier");
 
@@ -106,8 +150,7 @@ contract ERC20Relay is Ownable {
         fees = calculateFees();
     }
 
-    // TODO: Allow existing verifiers to vote on adding/removing others
-    function removeVerifier(address addr) external onlyOwner {
+    function removeVerifier(address addr) external onlyVerifierManager {
         require(addr != address(0), "Invalid verifier address");
         require(verifierAddressToIndex[addr] != 0, "Address is not a verifier");
         require(verifiers.length.sub(1) > MINIMUM_VERIFIERS, "Removing verifier would put number of verifiers below minimum");
@@ -154,7 +197,7 @@ contract ERC20Relay is Ownable {
         _;
     }
 
-    function setNctEthExchangeRate(uint256 _nctEthExchangeRate) external onlyOwner {
+    function setNctEthExchangeRate(uint256 _nctEthExchangeRate) external onlyFeeManager {
         nctEthExchangeRate = _nctEthExchangeRate;
         fees = calculateFees();
 

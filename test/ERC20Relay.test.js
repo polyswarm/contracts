@@ -16,7 +16,7 @@ const ERC20Relay = artifacts.require('ERC20Relay');
 // From coinmarketcap on 5/28/18
 const NctEthExchangeRate = 80972;
 
-contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifier2, user0, user1]) {
+contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifier2, user0, user1, verifierManager, feeManager]) {
   beforeEach(async function () {
     this.token = await NectarToken.new();
     this.relay = await ERC20Relay.new(this.token.address, NctEthExchangeRate, feeWallet, [verifier0, verifier1, verifier2]);
@@ -46,6 +46,29 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
   describe('fallback', function() {
     it('should revert when sent ether', async function () {
       await this.relay.send(ether(1)).should.be.rejectedWith(EVMRevert);
+    });
+  });
+
+  describe('managers', function() {
+    it('should allow owner to set managers', async function () {
+      await this.relay.setVerifierManager(verifierManager).should.be.fulfilled;
+      await this.relay.setFeeManager(feeManager).should.be.fulfilled;
+
+      await this.relay.setVerifierManager(verifierManager, {from: user0}).should.be.rejectedWith(EVMRevert);
+      await this.relay.setFeeManager(feeManager, {from: user0}).should.be.rejectedWith(EVMRevert);
+    });
+
+    it('should allow owner to perform manager functions only if not set', async function () {
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000001').should.be.fulfilled;
+      await this.relay.setNctEthExchangeRate('1000').should.be.fulfilled;
+
+      await this.relay.setVerifierManager(verifierManager).should.be.fulfilled;
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000002').should.be.rejectedWith(EVMRevert);
+      await this.relay.addVerifier('0x0000000000000000000000000000000000000002', {from: verifierManager}).should.be.fulfilled;
+
+      await this.relay.setFeeManager(feeManager).should.be.fulfilled;
+      await this.relay.setNctEthExchangeRate('2000').should.be.rejectedWith(EVMRevert);
+      await this.relay.setNctEthExchangeRate('2000', {from: feeManager}).should.be.fulfilled;
     });
   });
 
