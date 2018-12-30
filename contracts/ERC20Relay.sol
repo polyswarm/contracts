@@ -41,11 +41,11 @@ contract ERC20Relay is Ownable {
     struct Withdrawal {
         address destination;
         uint256 amount;
-        address[] approvals;
         bool processed;
     }
 
     mapping (bytes32 => Withdrawal) public withdrawals;
+    mapping (bytes32 => address[]) public withdrawalApprovals;
 
     event WithdrawalProcessed(
         address indexed destination,
@@ -63,11 +63,11 @@ contract ERC20Relay is Ownable {
     struct Anchor {
         bytes32 blockHash;
         uint256 blockNumber;
-        address[] approvals;
         bool processed;
     }
 
     Anchor[] public anchors;
+    mapping (bytes32 => address[]) public anchorApprovals;
 
     event AnchoredBlock(
         bytes32 indexed blockHash,
@@ -227,20 +227,22 @@ contract ERC20Relay is Ownable {
         uint256 net = amount.sub(fees);
 
         if (withdrawals[hash].destination == address(0)) {
-            withdrawals[hash] = Withdrawal(destination, net, new address[](0), false);
+            withdrawals[hash] = Withdrawal(destination, net, false);
         }
 
         Withdrawal storage w = withdrawals[hash];
+        address[] storage approvals = withdrawalApprovals[hash];
         require(w.destination == destination, "Destination mismatch");
         require(w.amount == net, "Amount mismatch");
 
-        for (uint256 i = 0; i < w.approvals.length; i++) {
-            require(w.approvals[i] != msg.sender, "Already approved withdrawal");
+
+        for (uint256 i = 0; i < approvals.length; i++) {
+            require(approvals[i] != msg.sender, "Already approved withdrawal");
         }
 
-        w.approvals.push(msg.sender);
+        approvals.push(msg.sender);
 
-        if (w.approvals.length >= requiredVerifiers && !w.processed) {
+        if (approvals.length >= requiredVerifiers && !w.processed) {
             if (fees != 0 && feeWallet != address(0)) {
                 token.safeTransfer(feeWallet, fees);
             }
@@ -267,14 +269,15 @@ contract ERC20Relay is Ownable {
         require(withdrawals[hash].destination != address(0), "No such withdrawal");
 
         Withdrawal storage w = withdrawals[hash];
+        address[] storage approvals = withdrawalApprovals[hash];
         require(!w.processed, "Withdrawal already processed");
 
-        uint256 length = w.approvals.length;
+        uint256 length = approvals.length;
         for (uint256 i = 0; i < length; i++) {
-            if (w.approvals[i] == msg.sender) {
-                w.approvals[i] = w.approvals[length.sub(1)];
-                delete w.approvals[length.sub(1)];
-                w.approvals.length = w.approvals.length.sub(1);
+            if (approvals[i] == msg.sender) {
+                approvals[i] = approvals[length.sub(1)];
+                delete approvals[length.sub(1)];
+                approvals.length = approvals.length.sub(1);
                 break;
             }
         }
@@ -291,19 +294,21 @@ contract ERC20Relay is Ownable {
                 Anchor storage last = anchors[anchors.length.sub(1)];
                 emit ContestedBlock(last.blockHash, last.blockNumber);
             }
-            anchors.push(Anchor(blockHash, blockNumber, new address[](0), false));
+            anchors.push(Anchor(blockHash, blockNumber, false));
         }
 
+        bytes32 hash = keccak256(abi.encodePacked(blockHash, blockNumber));
         Anchor storage a = anchors[anchors.length.sub(1)];
+        address[] storage approvals = anchorApprovals[hash];
         require(a.blockHash == blockHash, "Block hash mismatch");
         require(a.blockNumber == blockNumber, "Block number mismatch");
 
-        for (uint256 i = 0; i < a.approvals.length; i++) {
-            require(a.approvals[i] != msg.sender, "Already approved anchor block");
+        for (uint256 i = 0; i < approvals.length; i++) {
+            require(approvals[i] != msg.sender, "Already approved anchor block");
         }
 
-        a.approvals.push(msg.sender);
-        if (a.approvals.length >= requiredVerifiers && !a.processed) {
+        approvals.push(msg.sender);
+        if (approvals.length >= requiredVerifiers && !a.processed) {
             a.processed = true;
             emit AnchoredBlock(blockHash, blockNumber);
         }
@@ -313,12 +318,15 @@ contract ERC20Relay is Ownable {
         Anchor storage a = anchors[anchors.length.sub(1)];
         require(!a.processed, "Block anchor already processed");
 
-        uint256 length = a.approvals.length;
+        bytes32 hash = keccak256(abi.encodePacked(a.blockHash, a.blockNumber));
+        address[] storage approvals = anchorApprovals[hash];
+
+        uint256 length = approvals.length;
         for (uint256 i = 0; i < length; i++) {
-            if (a.approvals[i] == msg.sender) {
-                a.approvals[i] = a.approvals[length.sub(1)];
-                delete a.approvals[length.sub(1)];
-                a.approvals.length = a.approvals.length.sub(1);
+            if (approvals[i] == msg.sender) {
+                approvals[i] = approvals[length.sub(1)];
+                delete approvals[length.sub(1)];
+                approvals.length = approvals.length.sub(1);
                 break;
             }
         }
