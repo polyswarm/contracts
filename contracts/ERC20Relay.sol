@@ -50,7 +50,6 @@ contract ERC20Relay is Ownable {
     struct Anchor {
         bytes32 blockHash;
         uint256 blockNumber;
-        address[] approvals;
         bool processed;
     }
 
@@ -252,7 +251,7 @@ contract ERC20Relay is Ownable {
                 Anchor storage last = anchors[anchors.length.sub(1)];
                 emit ContestedBlock(last.blockHash, last.blockNumber);
             }
-            anchors.push(Anchor(blockHash, blockNumber, new address[](0), false));
+            anchors.push(Anchor(blockHash, blockNumber, false));
         }
 
         bytes32 hash = keccak256(abi.encodePacked(blockHash, blockNumber));
