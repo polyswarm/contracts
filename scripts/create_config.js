@@ -178,6 +178,7 @@ module.exports = async callback => {
     chainConfig.chain_id = chainId;
     chainConfig.eth_uri = uri;
     chainConfig.nectar_token_address = nectarToken.address;
+    chainConfig.arbiter_staking_address = arbiterStaking.address;
     chainConfig.bounty_registry_address = bountyRegistry.address;
     chainConfig.offer_registry_address = offerRegistry.address;
 
