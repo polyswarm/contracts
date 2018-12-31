@@ -19,8 +19,7 @@ module.exports = function(deployer, network, accounts) {
 
   if (network === 'mainnet') {
     const NECTAR_ADDRESS = '0x9e46a38f5daabe8683e10793b06749eef7d733d1';
-    // XXX: Change me
-    const MAINNET_FEE_WALLET = '0x0f57baedcf2c84383492d1ea700835ce2492c48a';
+    const MAINNET_FEE_WALLET = '0x19754e8138E4318653E14deA03d2Dd4AA945E19c';
 
     return deployer.deploy(ERC20Relay, NECTAR_ADDRESS, NCT_ETH_EXCHANGE_RATE,
       FEE_WALLET, VERIFIER_ADDRESSES);
