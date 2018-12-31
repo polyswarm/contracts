@@ -12,9 +12,11 @@ module.exports = function(deployer, network, accounts) {
   const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
   const FEE_WALLET = '0x0f57baedcf2c84383492d1ea700835ce2492c48a';
   const VERIFIER_ADDRESSES = [
-    '0xe6cc4b147e3b1b59d2ac2f2f3784bbac1774bbf7',
-    '0x28fad0751f8f406d962d27b60a2a47ccceeb8096',
-    '0x87cb0b17cf9ebcb0447da7da55c703812813524b',
+    '0x8ba785d521735b04d9da615e7acd469da578356d',
+    '0x3f5d0751736d89fb519c88a153413fbbf4456f49',
+    '0xb15fb44788e5eda896247ef4e3d552ccc05f5d6b',
+    '0x315bf9dfc4f27b02c8e2df0b541ac601c352613d',
+    '0xa6fe9a9ecd482934779aa896db8dd1488bdde3d2',
   ];
 
   if (network === 'mainnet') {
