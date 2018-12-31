@@ -23,7 +23,7 @@ module.exports = function(deployer, network, accounts) {
   } else {
     return deployer.deploy(NectarToken).then(() => {
       const STAKE_DURATION = 100;
-      return deployer.deploy(ArbiterStaking, NectarToken.address, STAKE_DURATION)
+      return deployer.deploy(ArbiterStaking, NectarToken.address, STAKE_DURATION);
     }).then(() => {
       const ARBITER_VOTE_WINDOW = 100;
       return deployer.deploy(BountyRegistry, NectarToken.address, ArbiterStaking.address, ARBITER_VOTE_WINDOW);
