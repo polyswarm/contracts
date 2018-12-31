@@ -5,8 +5,8 @@ module.exports = function(deployer, network, accounts) {
   // https://etherscan.io/token/0x9e46a38f5daabe8683e10793b06749eef7d733d1#readContract totalSupply
   const TOTAL_SUPPLY = '1885913075851542181982426285';
 
-  // https://coinmarketcap.com/currencies/polyswarm/ retrieved on 5/28/18
-  const NCT_ETH_EXCHANGE_RATE = 80972;
+  // https://coinmarketcap.com/currencies/polyswarm/ retrieved on Dec 31st 2018
+  const NCT_ETH_EXCHANGE_RATE = 15300;
 
   // See docker setup
   const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
