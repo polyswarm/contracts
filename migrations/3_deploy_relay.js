@@ -6,7 +6,7 @@ module.exports = function(deployer, network, accounts) {
   const TOTAL_SUPPLY = '1885913075851542181982426285';
 
   // https://coinmarketcap.com/currencies/polyswarm/ retrieved on Dec 31st 2018
-  const NCT_ETH_EXCHANGE_RATE = 15300;
+  const NCT_ETH_EXCHANGE_RATE = 66401;
 
   // See docker setup
   const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
