@@ -1,9 +1,9 @@
-pragma solidity ^0.4.21;
+pragma solidity ^0.5.0;
 
-import "zeppelin-solidity/contracts/ownership/Ownable.sol";
-import "zeppelin-solidity/contracts/math/SafeMath.sol";
-import "zeppelin-solidity/contracts/token/ERC20/ERC20.sol";
-import "zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 
 contract ERC20Relay is Ownable {
     using SafeMath for uint256;
@@ -81,7 +81,7 @@ contract ERC20Relay is Ownable {
 
     ERC20 private token;
 
-    constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] _verifiers) public {
+    constructor(address _token, uint256 _nctEthExchangeRate, address _feeWallet, address[] memory _verifiers) public {
         require(_token != address(0), "Invalid token address");
         require(_verifiers.length >= MINIMUM_VERIFIERS, "Number of verifiers less than minimum");
 
@@ -113,7 +113,7 @@ contract ERC20Relay is Ownable {
 
     modifier onlyVerifierManager() {
         if (verifierManager == address(0)) {
-            require(msg.sender == owner, "Not a verifier manager");
+            require(msg.sender == owner(), "Not a verifier manager");
         } else {
             require(msg.sender == verifierManager, "Not a verifier manager");
         }
@@ -127,7 +127,7 @@ contract ERC20Relay is Ownable {
 
     modifier onlyFeeManager() {
         if (feeManager == address(0)) {
-            require(msg.sender == owner, "Not a fee manager");
+            require(msg.sender == owner(), "Not a fee manager");
         } else {
             require(msg.sender == feeManager, "Not a fee manager");
         }
@@ -166,7 +166,7 @@ contract ERC20Relay is Ownable {
         fees = calculateFees();
     }
 
-    function activeVerifiers() public view returns (address[]) {
+    function activeVerifiers() public view returns (address[] memory) {
         require(verifiers.length > 0, "Invalid number of verifiers");
 
         address[] memory ret = new address[](verifiers.length.sub(1));

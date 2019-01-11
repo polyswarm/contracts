@@ -1,11 +1,12 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.5.0;
 
-import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
 
 import "./OfferMultiSig.sol";
 
 /// @title Creates new Offer Channel contracts and keeps track of them
-contract OfferRegistry is Pausable {
+contract OfferRegistry is Pausable, Ownable {
 
     struct OfferChannel {
         address msig;
@@ -55,7 +56,7 @@ contract OfferRegistry is Pausable {
                 "Channel already exists between parties");
         }
 
-        address msig = new OfferMultiSig(nectarAddress, _ambassador, _expert, _settlementPeriodLength);
+        address msig = address(new OfferMultiSig(nectarAddress, _ambassador, _expert, _settlementPeriodLength));
 
         participantsToChannel[key] = msig;
 
@@ -96,10 +97,10 @@ contract OfferRegistry is Pausable {
      *
      * @return list of every channel registered
      */
-    function getChannelsGuids() external view returns (address[]) {
+    function getChannelsGuids() external view returns (uint128[] memory) {
         require(channelsGuids.length != 0, "No channels initialized");
 
-        address[] memory registeredChannelsGuids = new address[](channelsGuids.length);
+        uint128[] memory registeredChannelsGuids = new uint128[](channelsGuids.length);
 
         for (uint i = 0; i < channelsGuids.length; i++) {
             registeredChannelsGuids[i] = channelsGuids[i];
@@ -147,7 +148,7 @@ contract OfferRegistry is Pausable {
      */
 
     function getOfferState(
-        bytes _state
+        bytes memory _state
     )
     public
     pure
@@ -200,7 +201,7 @@ contract OfferRegistry is Pausable {
         return keccak256(abi.encodePacked(strConcat(str_ambassador, str_expert)));
     }
 
-    function toString(address x) internal pure returns (string) {
+    function toString(address x) internal pure returns (string memory) {
         bytes memory b = new bytes(20);
         for (uint i = 0; i < 20; i++) {
             b[i] = byte(uint8(uint(x) / (2**(8*(19 - i)))));
@@ -208,14 +209,15 @@ contract OfferRegistry is Pausable {
         return string(b);
     }
 
-    function strConcat(string _a, string _b) internal pure returns (string){
+    function strConcat(string memory _a, string memory _b) internal pure returns (string memory) {
         bytes memory _ba = bytes(_a);
         bytes memory _bb = bytes(_b);
         string memory abcde = new string(_ba.length + _bb.length);
         bytes memory babcde = bytes(abcde);
         uint k = 0;
+        uint i = 0;
 
-        for (uint i = 0; i < _ba.length; i++) {
+        for (i = 0; i < _ba.length; i++) {
             babcde[k++] = _ba[i];
         }
 
@@ -228,7 +230,7 @@ contract OfferRegistry is Pausable {
 
 
     /** Disable usage of the fallback function */
-    function() public payable {
+    function() external payable {
         revert("Do not allow sending Eth to this contract");
     }
 }

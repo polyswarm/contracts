@@ -46,6 +46,7 @@
     "consul": "^0.34.0",
     "ethjs-abi": "^0.2.1",
     "ethrpc": "^5.5.5",
+    "openzeppelin-solidity": "^2.1.1",
     "request-promise": "^4.2.2",
     "sha256": "^0.2.0",
     "truffle-flattener": "github:polyswarm/truffle-flattener#master",
@@ -53,7 +54,6 @@
     "web3-net": "^1.0.0-beta.35",
     "web3-utils": "^1.0.0-beta.35",
     "winston": "^3.1.0",
-    "write": "^1.0.3",
-    "zeppelin-solidity": "^1.7.0"
+    "write": "^1.0.3"
   }
 }
