@@ -2,14 +2,15 @@ import ether from './helpers/ether';
 import advanceToBlock, { advanceBlock } from './helpers/advanceToBlock';
 import EVMRevert from './helpers/EVMRevert';
 import utils from 'ethereumjs-util';
-
-const BigNumber = web3.BigNumber;
+import BN from 'bn.js';
+import bnChai from 'bn-chai';
 
 require('chai')
   .use(require('chai-as-promised'))
-  .use(require('chai-bignumber')(BigNumber))
+  .use(bnChai(BN))
   .should();
-
+const ZERO_HASH = "0x0000000000000000000000000000000000000000";
+const ONE_HASH = "0x0000000000000000000000000000000000000001";
 const NectarToken = artifacts.require('NectarToken');
 const ERC20Relay = artifacts.require('ERC20Relay');
 
@@ -39,7 +40,7 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
 
     it('should have two required verifiers', async function () {
       const required_verifiers = await this.relay.requiredVerifiers();
-      required_verifiers.should.be.bignumber.equal(2);
+      required_verifiers.should.eq.BN(2);
     });
   });
 
@@ -120,7 +121,7 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
     it('should report the number of verifiers', async function () {
       for (let i = 0; i < 10; i++) {
         const num_verifiers = await this.relay.numberOfVerifiers();
-        num_verifiers.should.bignumber.equal(i + 3);
+        num_verifiers.should.eq.BN(i + 3);
         await this.relay.addVerifier('0x000000000000000000000000000000000000000' + (i + 1).toString(16)).should.be.fulfilled;
       }
     });
@@ -128,7 +129,7 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
     it('should calculate the required number of verifier votes', async function () {
       for (let i = 0; i < 10; i++) {
         const required_verifiers = await this.relay.requiredVerifiers();
-        required_verifiers.should.bignumber.equal(Math.floor((i + 3) * 2 / 3));
+        required_verifiers.should.eq.BN(Math.floor((i + 3) * 2 / 3));
         await this.relay.addVerifier('0x000000000000000000000000000000000000000' + (i + 1).toString(16)).should.be.fulfilled;
       }
     });
@@ -165,7 +166,7 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
 
   describe('withdrawals', function() {
     it('should only allow verifiers to approve withdrawals', async function () {
-      await this.relay.approveWithdrawal(user0, '1', '0', '0', '0', { from: user0 }).should.be.rejectedWith(EVMRevert);
+      await this.relay.approveWithdrawal(user0, '1', ZERO_HASH, ZERO_HASH, '0', { from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should allow verifiers to approve withdrawals', async function () {
@@ -184,11 +185,11 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
     });
 
     it('should not allow verifiers to approve different transactions with the same hash', async function () {
-      await this.relay.approveWithdrawal(user0, ether(1000), '0', '0', '0', { from: verifier0 }).should.be.fulfilled;
-      await this.relay.approveWithdrawal(user0, ether(2000), '0', '0', '0', { from: verifier1 }).should.be.rejectedWith(EVMRevert);
+      await this.relay.approveWithdrawal(user0, ether(1000), ZERO_HASH, ZERO_HASH, '0', { from: verifier0 }).should.be.fulfilled;
+      await this.relay.approveWithdrawal(user0, ether(2000), ZERO_HASH, ZERO_HASH, '0', { from: verifier1 }).should.be.rejectedWith(EVMRevert);
 
-      await this.relay.approveWithdrawal(user1, ether(1000), '0', '0', '1', { from: verifier0 }).should.be.fulfilled;
-      await this.relay.approveWithdrawal(user1, ether(1000), '0', '0', '1', { from: verifier1 }).should.be.rejectedWith(EVMRevert);
+      await this.relay.approveWithdrawal(user1, ether(1000), ZERO_HASH, ZERO_HASH, '1', { from: verifier0 }).should.be.fulfilled;
+      await this.relay.approveWithdrawal(user1, ether(1000), ZERO_HASH, ZERO_HASH, '1', { from: verifier1 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should not allow verifiers to approve multiple times', async function () {
@@ -224,7 +225,7 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
     });
 
     it('should not allow verifiers to unapprove non-existent withdrawals', async function () {
-      await this.relay.unapproveWithdrawal('0', '0', '0', { from: verifier0 }).should.be.rejectedWith(EVMRevert);
+      await this.relay.unapproveWithdrawal(ZERO_HASH, ZERO_HASH, '0', { from: verifier0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should not allow verifiers to unapprove processed withdrawals', async function () {
@@ -255,49 +256,49 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
 
   describe('anchors', function() {
     it('should only allow verifiers to anchor blocks', async function () {
-      await this.relay.anchor('0', '0', { from: user0 }).should.be.rejectedWith(EVMRevert);
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should allow verifiers to anchor blocks', async function () {
       let tx;
 
-      tx = await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
       tx.logs.length.should.be.equal(0);
-      tx = await this.relay.anchor('0', '0', { from: verifier1 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier1 }).should.be.fulfilled;
       tx.logs.length.should.be.equal(1);
-      tx = await this.relay.anchor('0', '0', { from: verifier2 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier2 }).should.be.fulfilled;
       tx.logs.length.should.be.equal(0);
 
     });
 
     it('should not allow verifiers to anchor blocks multiple times', async function () {
-      await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
-      await this.relay.anchor('0', '0', { from: verifier0 }).should.be.rejectedWith(EVMRevert);
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should not emit ContestedBlock if current anchor is processed before a new one is added', async function () {
       let tx;
-      await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
-      await this.relay.anchor('0', '0', { from: verifier1 }).should.be.fulfilled;
-      await this.relay.anchor('0', '0', { from: verifier2 }).should.be.fulfilled;
-      tx = await this.relay.anchor('0', '1', { from: verifier1 });
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier1 }).should.be.fulfilled;
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier2 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, ONE_HASH, { from: verifier1 });
       tx.logs.length.should.be.equal(0)
     });
 
     it('should emit ContestedBlock if new anchor pushed before current one is processed', async function () {
       let tx;
-      await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
-      tx = await this.relay.anchor('0', '1', { from: verifier1 });
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, '1', { from: verifier1 });
       tx.logs[0].event.should.equal('ContestedBlock')
     });
 
     it('should only allow verifiers to unanchor blocks', async function () {
-      await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
+      await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
       await this.relay.unanchor({ from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should allow verifiers to unanchor blocks', async function () {
-      let tx = await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
+      let tx = await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
       tx.logs.length.should.be.equal(0);
       await this.relay.unanchor({ from: verifier0 }).should.be.fulfilled;
     });
@@ -305,9 +306,9 @@ contract('ERC20Relay', function ([owner, feeWallet, verifier0, verifier1, verifi
     it('should not allow verifiers to unanchor processed blocks', async function () {
       let tx;
 
-      tx = await this.relay.anchor('0', '0', { from: verifier0 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier0 }).should.be.fulfilled;
       tx.logs.length.should.be.equal(0);
-      tx = await this.relay.anchor('0', '0', { from: verifier1 }).should.be.fulfilled;
+      tx = await this.relay.anchor(ZERO_HASH, ZERO_HASH, { from: verifier1 }).should.be.fulfilled;
       tx.logs.length.should.be.equal(1);
       tx = await this.relay.unanchor({ from: verifier0 }).should.be.rejectedWith(EVMRevert);
     });

@@ -35,12 +35,14 @@
     "ganache-cli": "6.1.8",
     "solidity-coverage": "^0.5.5",
     "solium": "^1.1.2",
-    "truffle": "^4.1.14"
+    "truffle": "^5.0.1"
   },
   "dependencies": {
     "abi-decoder": "^1.2.0",
     "args": "^5.0.0",
     "args-parser": "^1.1.0",
+    "bluebird": "^3.5.3",
+    "bn-chai": "^1.0.1",
     "bn.js": "^4.11.8",
     "bytecode-utils": "^1.1.0",
     "consul": "^0.34.0",

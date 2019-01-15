@@ -1,12 +1,17 @@
 export function advanceBlock () {
   return new Promise((resolve, reject) => {
-    web3.currentProvider.sendAsync({
+    web3.currentProvider.send({
       jsonrpc: '2.0',
-      method: 'evm_mine',
-      id: Date.now(),
-    }, (err, res) => {
-      return err ? reject(err) : resolve(res);
+        method: 'evm_mine',
+        id: Date.now(),
+      }, (err) => {
+        if (err) {
+          return reject(err);
+        }
+      resolve();
     });
+
+
   });
 }
 
@@ -19,11 +24,11 @@ export async function advanceBlocks (number) {
 
 // Advances the block number so that the last mined block is `number`.
 export default async function advanceToBlock (number) {
-  if (web3.eth.blockNumber > number) {
-    throw Error(`block number ${number} is in the past (current is ${web3.eth.blockNumber})`);
+  if (await web3.eth.getBlockNumber() > number) {
+    throw Error(`block number ${number} is in the past (current is ${await web3.eth.getBlockNumber()})`);
   }
 
-  while (web3.eth.blockNumber < number) {
+  while (await web3.eth.getBlockNumber() < number) {
     await advanceBlock();
   }
 }

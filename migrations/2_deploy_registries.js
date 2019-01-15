@@ -14,8 +14,9 @@ module.exports = function(deployer, network, accounts) {
 
     return deployer.deploy(ArbiterStaking, NectarToken.address, STAKE_DURATION).then(() => {
       return deployer.deploy(BountyRegistry, NECTAR_ADDRESS, ArbiterStaking.address, ARBITER_VOTE_WINDOW);
-    }).then(() => {
-      ArbiterStaking.at(ArbiterStaking.address).setBountyRegistry(BountyRegistry.address);
+    }).then(async () => {
+      const contractInstance = new web3.eth.Contract(ArbiterStaking.abi, ArbiterStaking.address);
+      await contractInstance.methods.setBountyRegistry(BountyRegistry.address);
     })
     .then(() => {
       return deployer.deploy(OfferRegistry, NectarToken.address);
@@ -27,8 +28,9 @@ module.exports = function(deployer, network, accounts) {
     }).then(() => {
       const ARBITER_VOTE_WINDOW = 100;
       return deployer.deploy(BountyRegistry, NectarToken.address, ArbiterStaking.address, ARBITER_VOTE_WINDOW);
-    }).then(() => {
-      ArbiterStaking.at(ArbiterStaking.address).setBountyRegistry(BountyRegistry.address);
+    }).then(async () => {
+      const contractInstance = new web3.eth.Contract(ArbiterStaking.abi, ArbiterStaking.address);
+      await contractInstance.methods.setBountyRegistry(BountyRegistry.address);
     }).then(() => {
       return deployer.deploy(OfferRegistry, NectarToken.address);
     });

@@ -3,12 +3,11 @@ import advanceToBlock, { advanceBlock, advanceBlocks } from './helpers/advanceTo
 import EVMRevert from './helpers/EVMRevert';
 import utils from 'ethereumjs-util';
 import BN from 'bn.js';
-
-const BigNumber = web3.BigNumber;
+import bnChai from 'bn-chai';
 
 require('chai')
   .use(require('chai-as-promised'))
-  .use(require('chai-bignumber')(BigNumber))
+  .use(bnChai(BN))
   .should();
 
 const ArbiterStaking = artifacts.require('ArbiterStaking');
@@ -42,7 +41,7 @@ async function postBounty(token, bountyregistry, from, amount, url, numArtifacts
 async function postAssertion(token, bountyregistry, from, bountyGuid, bid, mask, verdicts) {
   let nonce = new BN(utils.bufferToHex(utils.sha3(utils.toBuffer(Math.random() * (1 << 30)))).substring(2, 67), 16);
   verdicts = new BN(verdicts);
-  let from_num = new BN(from.substring(2), 16);
+  let from_num = new BN(from.substring(new BN(2)), 16);
   let hashed_nonce = new BN(utils.bufferToHex(utils.sha3(utils.toBuffer(nonce))).substring(2, 67), 16);
   let commitment = utils.bufferToHex(utils.sha3(utils.toBuffer(verdicts.xor(hashed_nonce).xor(from_num))));
 
@@ -84,7 +83,8 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     let arbiters = [arbiter0, arbiter1, arbiter2, arbiter3];
     // The async forEach we have been doing doesn't actually work
     for (let i = 0; i < arbiters.length; i++) {
-      await this.bountyregistry.addArbiter(arbiters[i], web3.eth.blockNumber);
+      const blockNumber = await web3.eth.getBlockNumber();
+      await this.bountyregistry.addArbiter(arbiters[i], blockNumber);
       await this.token.approve(this.staking.address, ether(10000000), { from: arbiters[i] });
       await this.staking.deposit(ether(10000000), { from: arbiters[i] });
     }
@@ -94,21 +94,21 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     it('should allocate NCT to each participant', async function() {
       await [owner, user0, user1, user2, expert0, expert1].forEach(async account => {
         let balance = await this.token.balanceOf(account);
-        balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE));
+        balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE));
       });
 
       await [arbiter0, arbiter1, arbiter2, arbiter3].forEach(async account => {
         let balance = await this.token.balanceOf(account);
-        balance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE));
+        balance.should.eq.BN(ether(STARTING_ARBITER_BALANCE));
       });
     });
 
     it('should allow transfering NCT between accounts', async function() {
       await this.token.transfer(user0, ether(10));
       let ownerBalance = await this.token.balanceOf(owner);
-      ownerBalance.should.be.bignumber.equal(ether(99999990));
+      ownerBalance.should.eq.BN(ether(99999990));
       let userBalance = await this.token.balanceOf(user0);
-      userBalance.should.be.bignumber.equal(ether(100000010));
+      userBalance.should.eq.BN(ether(100000010));
     });
   });
 
@@ -119,11 +119,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let guid = tx.logs[0].args.guid;
 
       let userBalance = await this.token.balanceOf(user0);
-      userBalance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(amount).sub(BOUNTY_FEE));
+      userBalance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(amount).sub(BOUNTY_FEE));
       let numBounties = await this.bountyregistry.getNumberOfBounties();
-      numBounties.should.be.bignumber.equal(1);
+      numBounties.should.eq.BN(1);
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
-      bounty[0].should.be.bignumber.equal(guid);
+      bounty[0].should.eq.BN(guid);
     });
 
     it('should reject bounties with duplicate guids', async function() {
@@ -172,7 +172,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       let guid = tx.logs[0].args.guid;
 
       let round = await this.bountyregistry.getCurrentRound(guid);
-      round.should.be.bignumber.equal(0);
+      round.should.eq.BN(0);
 
       let {nonce: nonce0} = await postAssertion(this.token, this.bountyregistry, expert0, guid, bid, 0x3, 0x0);
       let {nonce: nonce1} = await postAssertion(this.token, this.bountyregistry, expert1, guid, bid, 0x3, 0x1);
@@ -180,7 +180,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceBlocks(10);
 
       round = await this.bountyregistry.getCurrentRound(guid);
-      round.should.be.bignumber.equal(1);
+      round.should.eq.BN(1);
 
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, 0x0, nonce0, 0x0, "foo").should.be.fulfilled;
       await revealAssertion(this.token, this.bountyregistry, expert1, guid, 0x1, nonce1, 0x1, "bar").should.be.fulfilled;
@@ -188,7 +188,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceBlocks(ASSERTION_REVEAL_WINDOW);
 
       round = await this.bountyregistry.getCurrentRound(guid);
-      round.should.be.bignumber.equal(2);
+      round.should.eq.BN(new BN(2));
 
       await voteOnBounty(this.bountyregistry, arbiter0, guid, 0x1);
       await voteOnBounty(this.bountyregistry, arbiter1, guid, 0x1);
@@ -198,7 +198,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await advanceBlocks(ARBITER_VOTE_WINDOW);
 
       round = await this.bountyregistry.getCurrentRound(guid);
-      round.should.be.bignumber.equal(3);
+      round.should.eq.BN(new BN(3));
     });
   });
 
@@ -218,11 +218,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
       await revealAssertion(this.token, this.bountyregistry, expert0, guid, index, nonce, 0x1, "foo").should.be.fulfilled;
 
       let expert0Balance = await this.token.balanceOf(expert0);
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
       let numAssertions = await this.bountyregistry.getNumberOfAssertions(guid);
-      numAssertions.should.be.bignumber.equal(1);
+      numAssertions.should.eq.BN(1);
       let assertion = await this.bountyregistry.assertionsByGuid(guid, index);
-      assertion[1].should.be.bignumber.equal(bid);
+      assertion[1].should.eq.BN(bid);
     });
 
     it('should reject assertions with no associated bounty', async function() {
@@ -332,7 +332,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -340,15 +340,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init - bid - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init + bid + amount - assertionFee
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(bid).add(amount).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(bid).add(amount).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + (assertionFee * 2) + bountyFee
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(ASSERTION_FEE.mul(new BN(2))).add(BOUNTY_FEE));
     });
 
     it('should allow voting after quorum is reached', async function() {
@@ -416,7 +416,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -424,15 +424,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init - bid - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init + (bid / 2) - (bid / 2) + (amount / 2) - assertionFee
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(2)).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(2))).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bid + (amount / 2) + (assertionFee * 2) + bountyFee
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(2)).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(new BN(2))).add(ASSERTION_FEE.mul(new BN(2))).add(BOUNTY_FEE));
     });
 
 
@@ -471,15 +471,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init - bid - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init + (bid / 2) - (bid / 2) + (amount / 2) - assertionFee
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(2)).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(2))).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(arbiter2);
       // init + bid + (amount / 2) + (assertionFee * 2) + bountyFee
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(2)).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(new BN(2))).add(ASSERTION_FEE.mul(new BN(2))).add(BOUNTY_FEE));
     });
 
     it('should reach quorum if all arbiters vote malicious for first artifact', async function() {
@@ -512,20 +512,20 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
       }
 
       let expert0Balance = await this.token.balanceOf(expert0);
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(4)).sub(bid.div(2)).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(4))).sub(bid.div(new BN(2))).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.mul(3).div(4)).add(bid.div(2)).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.mul(new BN(3)).div(new BN(4))).add(bid.div(new BN(2))).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(ASSERTION_FEE.mul(new BN(2))).add(BOUNTY_FEE));
     });
 
     it('should reach quorum if all arbiters vote malicious for the second artifact', async function() {
@@ -557,7 +557,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -565,15 +565,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init - bid - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(2)).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(2))).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init + (bid / 2) - (bid / 2) + (amount / 2) - assertionFee
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bid + (amount / 2) + (assertionFee * 2) + bountyFee
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(2)).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(new BN(2))).add(ASSERTION_FEE.mul(new BN(2))).add(BOUNTY_FEE));
     });
 
     it('should treat assertions that haven\'t been revealed as incorrect', async function() {
@@ -604,7 +604,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -612,24 +612,26 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init - bid - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init + (bid / 2) - (bid / 2) + (amount / 2) - assertionFee
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(2)).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(2))).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bid + (amount / 2) + (assertionFee * 2) + bountyFee
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(2)).add(ASSERTION_FEE.mul(2)).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(bid).add(amount.div(new BN(2))).add(ASSERTION_FEE.mul(new BN(2))).add(BOUNTY_FEE));
     });
 
     it('should only allow owner to modify arbiters', async function() {
-      await this.bountyregistry.removeArbiter(arbiter0, web3.eth.blockNumber, { from: user0 }).should.be.rejectedWith(EVMRevert);
-      await this.bountyregistry.addArbiter(user0, web3.eth.blockNumber, { from: user0 }).should.be.rejectedWith(EVMRevert);
+      const blockNumber = await web3.eth.getBlockNumber();
+      await this.bountyregistry.removeArbiter(arbiter0, blockNumber, { from: user0 }).should.be.rejectedWith(EVMRevert);
+      await this.bountyregistry.addArbiter(user0, blockNumber, { from: user0 }).should.be.rejectedWith(EVMRevert);
     });
 
     it('should allow removing arbiters', async function() {
-      await this.bountyregistry.removeArbiter(arbiter0, web3.eth.blockNumber);
+      const blockNumber = await web3.eth.getBlockNumber();
+      await this.bountyregistry.removeArbiter(arbiter0, blockNumber);
 
       let amount = ether(10);
       let bid = ether(20);
@@ -645,8 +647,10 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
     });
 
     it('should allow removing and adding arbiters', async function() {
-      await this.bountyregistry.removeArbiter(arbiter0, web3.eth.blockNumber);
-      await this.bountyregistry.addArbiter(arbiter0, web3.eth.blockNumber);
+      const blockNumber = await web3.eth.getBlockNumber();
+
+      await this.bountyregistry.removeArbiter(arbiter0, blockNumber);
+      await this.bountyregistry.addArbiter(arbiter0, blockNumber);
 
       let amount = ether(10);
       let bid = ether(20);
@@ -708,11 +712,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bountyFee
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE));
+      ambassadorBalance.should.eq.BN(ether(STARTING_AMBASSADOR_BALANCE));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should refund bounty amount to ambassador if there are no assertions', async function() {
@@ -738,7 +742,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -746,15 +750,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bounty fee
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(BOUNTY_FEE));
+      ambassadorBalance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(BOUNTY_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bounty fee
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should refund bounty fee to ambassador if there are no votes', async function() {
@@ -781,11 +785,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE).sub(amount));
+      ambassadorBalance.should.eq.BN(ether(STARTING_AMBASSADOR_BALANCE).sub(amount));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should refund a portion of bounty amount to ambassador if there are no assertions for one of the artifacts', async function() {
@@ -815,7 +819,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -823,15 +827,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bountyFee - bounty_amount /2
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE).sub(BOUNTY_FEE).sub(amount.div(2)));
+      ambassadorBalance.should.eq.BN(ether(STARTING_AMBASSADOR_BALANCE).sub(BOUNTY_FEE).sub(amount.div(new BN(2))));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should refund bounty amount to ambassador if there are no assertions for any artifacts', async function() {
@@ -861,7 +865,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -869,15 +873,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let ambassadorBalance = await this.token.balanceOf(user0);
       // init - bountyFee
-      ambassadorBalance.should.be.bignumber.equal(ether(STARTING_AMBASSADOR_BALANCE).sub(BOUNTY_FEE));
+      ambassadorBalance.should.eq.BN(ether(STARTING_AMBASSADOR_BALANCE).sub(BOUNTY_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout assertion fee, bid, and bounty amount to expert if there are no votes (1 expert)', async function() {
@@ -902,11 +906,11 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) + bounty_amount
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout assertion fee, bid, and a portion of bounty amount to experts if there are no votes (2 experts)', async function() {
@@ -933,15 +937,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) + bounty_amount / 2
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(2)));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(2))));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init (and returned assertion fee) + bounty_amount / 2
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).add(amount.div(2)));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).add(amount.div(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should lose bid if expert does not reveal', async function() {
@@ -968,7 +972,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -976,19 +980,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) + bounty_amount / 2
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init (and returned assertion fee) + bounty_amount / 2
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(bid).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee) + amount + bid * 2
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)).add(amount).add(bid.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))).add(amount).add(bid.mul(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout bid to expert if expert submits mask 0', async function() {
@@ -1018,7 +1022,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1026,19 +1030,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) - assertionFee
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init (and returned assertion fee) - assertionFee
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout half of bounty amount to expert and lose half of bid when assertion has 1 artifact correct and 1 wrong (1 expert)', async function() {
@@ -1066,7 +1070,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1074,15 +1078,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) - bid / 2 + bounty_amount / 2
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).sub(bid.div(2)).add(amount.div(2)));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).sub(bid.div(new BN(2))).add(amount.div(new BN(2))));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee) + bounty_amount /2 + bid / 2
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE).add(amount.div(2)).add(bid.div(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE).add(amount.div(new BN(2))).add(bid.div(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout portion of bid and bounty amount to expert when assertion has 1 artifact correct and 1 wrong (2 experts)', async function() {
@@ -1112,7 +1116,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1120,19 +1124,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) - bid / 2 + bounty_amount / 4 (2 because 2 bounties, 2 because they got one wrong)
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).sub(bid.div(2)).add(amount.div(4)));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).sub(bid.div(new BN(2))).add(amount.div(new BN(4))));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init (and returned assertion fee) - bid / 2 + bounty_amount / 4 (2 because 2 bounties, 2 because they got one wrong)
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).sub(bid.div(2)).add(amount.div(4)));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).sub(bid.div(new BN(2))).add(amount.div(new BN(4))));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee) + bounty_amount /2 (because of half wrong assertions) + bid / 2 * 2
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)).add(amount.div(2)).add(bid));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))).add(amount.div(new BN(2))).add(bid));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout portion of losing bids, a portion of their own bid, and bounty amount to experts when assertion have opposite 1 artifact correct and 1 wrong (2 experts)', async function() {
@@ -1162,7 +1166,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1170,19 +1174,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) + bounty_amount / 2
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.div(2)));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.div(new BN(2))));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init (and returned assertion fee) + bounty_amount / 2
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.div(2)));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.div(new BN(2))));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout bid and portion of bounty amount relative to bid amount to expert when multiple experts assert', async function() {
@@ -1213,7 +1217,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1221,19 +1225,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let expert0Balance = await this.token.balanceOf(expert0);
       // init (and returned assertion fee) + bounty_amount * bid/(total bids)
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.mul(bid0).div(bid0.add(bid1))));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.mul(bid0).div(bid0.add(bid1))));
 
       let expert1Balance = await this.token.balanceOf(expert1);
       // init (and returned assertion fee) + bounty_amount * bid/(total bids)
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.mul(bid1).div(bid0.add(bid1))));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE).sub(ASSERTION_FEE).add(amount.mul(bid1).div(bid0.add(bid1))));
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout nothing to arbiter when no votes', async function() {
@@ -1260,7 +1264,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
         await settleBounty(registry, arbiter, guid);
         let arbiterBalance = await token.balanceOf(arbiter);
         // init
-        arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE));
+        arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE));
       }));
 
       await settleBounty(this.bountyregistry, user0, guid);
@@ -1269,7 +1273,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout nothing to arbiter when no votes and no assertions', async function() {
@@ -1289,7 +1293,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
         await settleBounty(registry, arbiter, guid);
         let arbiterBalance = await token.balanceOf(arbiter);
         // init
-        arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE));
+        arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE));
       }));
 
       await settleBounty(this.bountyregistry, user0, guid);
@@ -1298,7 +1302,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout bounty fee to arbiter when no assertions', async function() {
@@ -1319,7 +1323,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1327,7 +1331,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE));
 
       await settleBounty(this.bountyregistry, user0, guid);
       await settleBounty(this.bountyregistry, expert0, guid);
@@ -1335,7 +1339,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout bounty fee and assertion fees to arbiter', async function() {
@@ -1362,7 +1366,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1370,7 +1374,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))));
 
       await settleBounty(this.bountyregistry, user0, guid);
       await settleBounty(this.bountyregistry, expert0, guid);
@@ -1378,7 +1382,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout bounty fee, assertion fees, and bounty amount to arbiter if every expert is wrong', async function() {
@@ -1405,7 +1409,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1413,7 +1417,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)).add(amount).add(bid.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))).add(amount).add(bid.mul(new BN(2))));
 
       await settleBounty(this.bountyregistry, user0, guid);
       await settleBounty(this.bountyregistry, expert0, guid);
@@ -1421,7 +1425,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout bounty fee, assertion fees, and bounty amount to arbiter if every expert is wrong', async function() {
@@ -1448,7 +1452,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1456,7 +1460,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.equal(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(2)).add(amount).add(bid.mul(2)));
+      arbiterBalance.should.eq.BN(ether(STARTING_ARBITER_BALANCE).add(BOUNTY_FEE).add(ASSERTION_FEE.mul(new BN(2))).add(amount).add(bid.mul(new BN(2))));
 
       await settleBounty(this.bountyregistry, user0, guid);
       await settleBounty(this.bountyregistry, expert0, guid);
@@ -1464,7 +1468,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout so abriter and expert profit when the expert is correct using bounty minimums (1 expert)', async function() {
@@ -1488,7 +1492,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1499,15 +1503,15 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
       // init + bountyFee + (2 * assertionFee)
-      arbiterBalance.should.be.bignumber.above(ether(STARTING_ARBITER_BALANCE));
+      arbiterBalance.should.be.gt.BN(ether(STARTING_ARBITER_BALANCE));
 
       let expert0Balance = await this.token.balanceOf(expert0);
 
-      expert0Balance.should.be.bignumber.above(ether(STARTING_EXPERT_BALANCE));
+      expert0Balance.should.be.gt.BN(ether(STARTING_EXPERT_BALANCE));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout so abriter profits and experts break-even when both experts are correct using bounty minimums (2 experts)', async function() {
@@ -1533,7 +1537,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1545,19 +1549,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
 
-      arbiterBalance.should.be.bignumber.above(ether(STARTING_ARBITER_BALANCE));
+      arbiterBalance.should.be.gt.BN(ether(STARTING_ARBITER_BALANCE));
 
       let expert0Balance = await this.token.balanceOf(expert0);
 
-      expert0Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE));
+      expert0Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
 
-      expert1Balance.should.be.bignumber.equal(ether(STARTING_EXPERT_BALANCE));
+      expert1Balance.should.eq.BN(ether(STARTING_EXPERT_BALANCE));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
 
     it('should payout so abriter and correct expert profit and the incorrect expert losses nectar using bounty minimums (2 experts)', async function() {
@@ -1583,7 +1587,7 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let bounty = await this.bountyregistry.bountiesByGuid(guid);
       let selected = bounty[6];
-      selected.should.not.be.bignumber.equal(0);
+      selected.should.not.to.eq.BN(0);
 
       if (selected != arbiter0) {
         await settleBounty(this.bountyregistry, selected, guid);
@@ -1595,19 +1599,19 @@ contract('BountyRegistry', function ([owner, user0, user1, user2, expert0, exper
 
       let arbiterBalance = await this.token.balanceOf(selected);
 
-      arbiterBalance.should.be.bignumber.above(ether(STARTING_ARBITER_BALANCE));
+      arbiterBalance.should.be.gt.BN(ether(STARTING_ARBITER_BALANCE));
 
       let expert0Balance = await this.token.balanceOf(expert0);
 
-      expert0Balance.should.be.bignumber.above(ether(STARTING_EXPERT_BALANCE));
+      expert0Balance.should.be.gt.BN(ether(STARTING_EXPERT_BALANCE));
 
       let expert1Balance = await this.token.balanceOf(expert1);
 
-      expert1Balance.should.be.bignumber.below(ether(STARTING_EXPERT_BALANCE));
+      expert1Balance.should.be.lt.BN(ether(STARTING_EXPERT_BALANCE));
 
       let registryBalance = await this.token.balanceOf(this.bountyregistry.address);
       
-      registryBalance.should.be.bignumber.equal(0);
+      registryBalance.should.eq.BN(0);
     });
   });
 });

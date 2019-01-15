@@ -49,7 +49,7 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
     IPFSUri = sha256('IPFSUri').slice(32);
     metadata = 'Locky';
     nectarAddress = nectar.address;
-    mockMultiSigAddress = '0x043bbf1af93df1220dacc94b9ca51b789bf20dc3';
+    mockMultiSigAddress = web3.utils.toChecksumAddress('0x043bbf1af93df1220dacc94b9ca51b789bf20dc3');
     ambassadorBalance = 20;
     expertBalance = 0;
     offerAmount = 1;
@@ -104,24 +104,23 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
   })
 
   it("should be able to pause all offer multi sigs", async () => {
-    let msig = await web3.eth.contract(OfferMultiSig.abi).at(offerMsig);
+    let msig = await new web3.eth.Contract(OfferMultiSig.abi, offerMsig);
     await registry.pauseChannels();
-
-    assert.equal(await msig.paused(), true);
+    assert.equal(await msig.methods.paused().call(), true);
   })
 
   it("should be able to resume all offer multi sigs", async () => {
-    let msig = await web3.eth.contract(OfferMultiSig.abi).at(offerMsig);
+    let msig = await new web3.eth.Contract(OfferMultiSig.abi, offerMsig);
     await registry.unpauseChannels();
 
-    assert.equal(await msig.paused(), false);
+    assert.equal(await msig.methods.paused().call(), false);
   })
 
   it("should get offer state", async () => {
-    const rawOfferState = await registry.getOfferState(offerStateBytes);
-    const [_guid, _nonce, _amount, _msigAddress, _balanceA,
+    const rawOfferState = await registry.methods['getOfferState(bytes)'].call(offerStateBytes);
+    const {_guid, _nonce, _amount, _msigAddress, _balanceA,
      _balanceB, _ambassador, _expert, _isClosed, _token,
-      _commitment, _assertion] = rawOfferState;
+      _mask, _assertion} = rawOfferState;
 
     assert.equal(Web3Utils.hexToNumberString(_guid), guid, 'guid mismatch');
     assert.equal(Web3Utils.hexToNumber(_amount), offerAmount, 'offer amount mismatch');
@@ -133,7 +132,7 @@ contract('OfferRegistry', function([owner, ambassador, expert]) {
     assert.equal(_expert, expert, 'expert address mismatch');
     assert.equal(_isClosed, isClosed, 'closed flag mismatch');
     assert.equal(_token, nectarAddress, 'nectar token mismatch');
-    assert.equal(Web3Utils.hexToNumber(_commitment), commitment, 'expert commitment mismatch');
+    assert.equal(Web3Utils.hexToNumber(_mask), commitment, 'expert commitment mismatch');
     assert.equal(Web3Utils.hexToNumber(_assertion), assertion, 'export assertion mismatch');
   })
 
