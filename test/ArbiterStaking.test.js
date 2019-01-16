@@ -1,9 +1,11 @@
-import ether from './helpers/ether';
-import advanceToBlock, { advanceBlock, advanceBlocks } from './helpers/advanceToBlock';
-import EVMRevert from './helpers/EVMRevert';
-import utils from 'ethereumjs-util';
+/* global web3, artifacts, it, contract, before, beforeEach, describe */
+
+
 import BN from 'bn.js';
 import bnChai from 'bn-chai';
+import ether from './helpers/ether';
+import { advanceBlocks } from './helpers/advanceToBlock';
+import EVMRevert from './helpers/EVMRevert';
 
 require('chai')
   .use(require('chai-as-promised'))
@@ -20,8 +22,8 @@ const ARBITER_VOTE_WINDOW = 100;
 const STAKE_DURATION = 100;
 const MINIMUM_STAKE = 10000000 * 10 ** 18;
 
-contract('ArbiterStaking', function ([owner, arbiter]) {
-  before(async function () {
+contract('ArbiterStaking', ([owner, arbiter]) => {
+  before(async () => {
     // Advance to the max stake duration so the subtraction in
     // withdrawableBalanceOf and withdraw doesn't revert()
     await advanceBlocks(STAKE_DURATION);
@@ -33,43 +35,43 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
     this.registry = await BountyRegistry.new(this.token.address, this.staking.address, ARBITER_VOTE_WINDOW);
 
     this.staking.setBountyRegistry(this.registry.address);
-    await [arbiter].forEach(async account => {
+    await [arbiter].forEach(async (account) => {
       await this.token.mint(account, web3.utils.toHex(ether(1000000000)));
-      let blockNumber = await web3.eth.getBlockNumber();
-      await this.registry.addArbiter(account, blockNumber)
+      const blockNumber = await web3.eth.getBlockNumber();
+      await this.registry.addArbiter(account, blockNumber);
     });
 
     await this.token.enableTransfers();
   });
 
-  describe('life cycle', function() {
-    it('should be owned', async function() {
-      let o = await this.staking.owner();
+  describe('life cycle', () => {
+    it('should be owned', async function () {
+      const o = await this.staking.owner();
       o.should.be.equal(owner);
     });
- 
-    it('should be pauseable', async function() {
+
+    it('should be pauseable', async function () {
       await this.staking.pause();
       await this.staking.deposit('1', { from: arbiter }).should.be.rejectedWith(EVMRevert);
       await this.staking.unpause();
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
+      const tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
     });
   });
 
-  describe('deposits', function() {
-    it('should allow deposits', async function() {
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
+  describe('deposits', () => {
+    it('should allow deposits', async function () {
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
+      const tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
     });
 
-    it('update the balance after a deposit', async function() {
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
+    it('update the balance after a deposit', async function () {
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
+      const tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
 
@@ -77,20 +79,20 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       balance.should.eq.BN('1');
     });
 
-    it('update the withdrawable balance after a deposit', async function() {
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
+    it('update the withdrawable balance after a deposit', async function () {
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
       let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
 
       await advanceBlocks(10);
 
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
       tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
 
-      let b = await this.staking.balanceOf(arbiter);
+      const b = await this.staking.balanceOf(arbiter);
       b.should.eq.BN('2');
 
       let wb = await this.staking.withdrawableBalanceOf(arbiter);
@@ -105,9 +107,9 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       wb.should.eq.BN('2');
     });
 
-    it('should return 0 when block.number is less than stakingDuration', async function() {
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
+    it('should return 0 when block.number is less than stakingDuration', async function () {
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
+      const tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
 
@@ -115,31 +117,31 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       balance.should.eq.BN('0');
     });
 
-    it('should reject a deposit where total is over max staking', async function() {
+    it('should reject a deposit where total is over max staking', async function () {
       await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
       await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
-      let b = await this.staking.balanceOf(arbiter);
+      const b = await this.staking.balanceOf(arbiter);
       b.should.eq.BN('1');
 
       await this.token.approve(this.staking.address, ether('100000000'), { from: arbiter }).should.be.fulfilled;
       await this.staking.deposit(ether('100000000'), { from: arbiter }).should.be.rejectedWith(EVMRevert);
     });
 
-    it('should reject a deposit where the msg sender is not an arbiter', async function() {
-      let blockNumber = await web3.eth.getBlockNumber();
+    it('should reject a deposit where the msg sender is not an arbiter', async function () {
+      const blockNumber = await web3.eth.getBlockNumber();
       await this.registry.removeArbiter(arbiter, blockNumber);
       await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
       await this.staking.deposit('1', { from: arbiter }).should.be.rejectedWith(EVMRevert);
-    })
+    });
   });
 
-  describe('withdrawals', function() {
-    it('should reject sender with no deposits', async function() {
+  describe('withdrawals', () => {
+    it('should reject sender with no deposits', async function () {
       await this.staking.withdraw('1', { from: arbiter }).should.be.rejectedWith(EVMRevert);
     });
 
-    it('should allow withdrawals after the minimum staking time', async function() {
-      await this.token.approve(this.staking.address, '1', {from: arbiter }).should.be.fulfilled;
+    it('should allow withdrawals after the minimum staking time', async function () {
+      await this.token.approve(this.staking.address, '1', { from: arbiter }).should.be.fulfilled;
       let tx = await this.staking.deposit('1', { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN('1');
@@ -168,15 +170,15 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
       wb.should.eq.BN('0');
     });
 
-    it('should handle combinations of deposits and withdrawals', async function() {
-      let self = this;
+    it('should handle combinations of deposits and withdrawals', async function () {
+      const self = this;
 
-      let deposit = async function(amount) {
-        await self.token.approve(self.staking.address, amount, {from: arbiter }).should.be.fulfilled;
+      const deposit = async function (amount) {
+        await self.token.approve(self.staking.address, amount, { from: arbiter }).should.be.fulfilled;
         return self.staking.deposit(amount, { from: arbiter });
       };
 
-      let withdraw = async function(amount) {
+      const withdraw = async function (amount) {
         return self.staking.withdraw(amount, { from: arbiter });
       };
 
@@ -231,30 +233,30 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
     });
   });
 
-  describe('arbiter', function() {
-    it('should correctly detect eligible arbiters before bounty record', async function() {
-      let is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(false);
+  describe('arbiter', () => {
+    it('should correctly detect eligible arbiters before bounty record', async function () {
+      let isArbiter = await this.staking.isEligible(arbiter);
+      isArbiter.should.be.equal(false);
 
-      let value = ether('10000000');
-      await this.token.approve(this.staking.address, value, {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit(value, { from: arbiter }).should.be.fulfilled;
+      const value = ether('10000000');
+      await this.token.approve(this.staking.address, value, { from: arbiter }).should.be.fulfilled;
+      const tx = await this.staking.deposit(value, { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.be.equal(arbiter);
       tx.logs[0].args.value.should.eq.BN(value);
 
-      is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(true);
+      isArbiter = await this.staking.isEligible(arbiter);
+      isArbiter.should.be.equal(true);
     });
 
-    it('should correctly detect eligible arbiters with bounty record', async function() {
-      let is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(false);
+    it('should correctly detect eligible arbiters with bounty record', async function () {
+      let isArbiter = await this.staking.isEligible(arbiter);
+      isArbiter.should.be.equal(false);
 
-      let value = ether('10000000');
-      let blockNumber = await web3.eth.getBlockNumber();
+      const value = ether('10000000');
+      const blockNumber = await web3.eth.getBlockNumber();
 
-      await this.token.approve(this.staking.address, value, {from: arbiter }).should.be.fulfilled;
-      let tx = await this.staking.deposit(value, { from: arbiter }).should.be.fulfilled;
+      await this.token.approve(this.staking.address, value, { from: arbiter }).should.be.fulfilled;
+      const tx = await this.staking.deposit(value, { from: arbiter }).should.be.fulfilled;
       tx.logs[0].args.from.should.eq.BN(arbiter);
       tx.logs[0].args.value.should.eq.BN(value);
 
@@ -264,12 +266,12 @@ contract('ArbiterStaking', function ([owner, arbiter]) {
         await this.staking.recordBounty(arbiter, i + 1, blockNumber, { from: owner }).should.be.fulfilled;
       }
       await this.staking.recordBounty(owner, 10, blockNumber, { from: owner }).should.be.fulfilled;
-      is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(true);
+      isArbiter = await this.staking.isEligible(arbiter);
+      isArbiter.should.be.equal(true);
 
       await this.staking.recordBounty(owner, 11, blockNumber, { from: owner });
-      is_arbiter = await this.staking.isEligible(arbiter);
-      is_arbiter.should.be.equal(false);
+      isArbiter = await this.staking.isEligible(arbiter);
+      isArbiter.should.be.equal(false);
     });
   });
 });
