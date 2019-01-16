@@ -47,9 +47,8 @@ contract NectarToken is ERC20Mintable, Ownable {
         // It is assumed that when does this that the call *should* succeed, otherwise one would use vanilla approve instead.
 
         // solium-disable-next-line security/no-low-level-calls, indentation
-        // require(_spender.call(bytes4(bytes32(keccak256("receiveApproval(address,uint256,address,bytes)"))),
-
-        (bool success, ) = _spender.call(abi.encodeWithSignature("receiveApproval(address,uint256,address,bytes)", msg.sender, _value, address(this), _extraData));
+        (bool success, ) = _spender.call(
+            abi.encodeWithSignature("receiveApproval(address,uint256,address,bytes)", msg.sender, _value, address(this), _extraData));
         require(success, "receiveApproval failed");
         return true;
     }

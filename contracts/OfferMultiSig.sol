@@ -173,7 +173,8 @@ contract OfferMultiSig is Pausable {
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
-    function depositFunds(bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
+    function depositFunds(
+        bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
         require(isOpen == true, "Tried adding funds to a closed msig wallet");
         address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
@@ -198,7 +199,8 @@ contract OfferMultiSig is Pausable {
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
-    function closeAgreementWithTimeout(bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
+    function closeAgreementWithTimeout(
+        bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
@@ -228,7 +230,8 @@ contract OfferMultiSig is Pausable {
      * @dev index 0 is the ambassador signature
      * @dev index 1 is the expert signature
      */
-    function closeAgreement(bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
+    function closeAgreement(
+        bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
@@ -260,7 +263,8 @@ contract OfferMultiSig is Pausable {
      * @param _sigR output of ECDSA signature  of state by both parties
      * @param _sigS output of ECDSA signature of state by both parties
      */
-    function startSettle(bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
+    function startSettle(
+        bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
@@ -289,7 +293,8 @@ contract OfferMultiSig is Pausable {
      * @param _sigR output of ECDSA signature  of state by both parties
      * @param _sigS output of ECDSA signature of state by both parties
      */
-    function challengeSettle(bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
+    function challengeSettle(
+        bytes memory _state, uint8[2] memory _sigV, bytes32[2] memory _sigR, bytes32[2] memory _sigS) public onlyParticipants whenNotPaused {
         address _ambassador = getSig(_state, _sigV[0], _sigR[0], _sigS[0]);
         address _expert = getSig(_state, _sigV[1], _sigR[1], _sigS[1]);
         require(getTokenAddress(_state) == nectarAddress, "Invalid token address");
