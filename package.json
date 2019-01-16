@@ -33,12 +33,10 @@
     "eslint-plugin-standard": "^3.0.1",
     "ethereumjs-util": "^5.1.2",
     "ganache-cli": "6.1.8",
-    "solidity-coverage": "^0.5.5",
     "solium": "^1.1.2",
     "truffle": "^5.0.1"
   },
   "dependencies": {
-    "abi-decoder": "^1.2.0",
     "args": "^5.0.0",
     "args-parser": "^1.1.0",
     "bluebird": "^3.5.3",
