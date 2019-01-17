@@ -1,8 +1,9 @@
-FROM node:alpine
+FROM node:11.6.0-alpine
 
 # Needed to fix permissions issue when deploying to hive
 RUN npm config set unsafe-perm true && \
-    npm install truffle@4.1.14 -g
+    npm install truffle@5.0.0 -g && \
+    npm install npm@6.6.0-next.1 -g
 
 COPY package.json package-lock.json ./
 
@@ -13,7 +14,6 @@ RUN apk update && apk upgrade && \
 # adding python (some npm modules need it)
 RUN apk --no-cache add g++ gcc libgcc libstdc++ linux-headers make python
 RUN npm install --quiet node-gyp -g
-
 # install node modules
 RUN npm install
 

@@ -1,9 +1,9 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.5.0;
 
-import "zeppelin-solidity/contracts/token/ERC20/MintableToken.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/ERC20Mintable.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-
-contract NectarToken is MintableToken {
+contract NectarToken is ERC20Mintable, Ownable {
     string public name = "Nectar";
     string public symbol = "NCT";
     uint8 public decimals = 18;
@@ -36,9 +36,8 @@ contract NectarToken is MintableToken {
     }
 
     // Approves and then calls the receiving contract
-    function approveAndCall(address _spender, uint256 _value, bytes _extraData) public returns (bool success) {
-        allowed[msg.sender][_spender] = _value;
-        emit Approval(msg.sender, _spender, _value);
+    function approveAndCall(address _spender, uint256 _value, bytes memory _extraData) public returns (bool) {
+        require(approve(_spender, _value), "approve failed");
 
         // Call the receiveApproval function on the contract you want to be notified.
         // This crafts the function signature manually so one doesn't have to include a contract in here just for this.
@@ -48,8 +47,9 @@ contract NectarToken is MintableToken {
         // It is assumed that when does this that the call *should* succeed, otherwise one would use vanilla approve instead.
 
         // solium-disable-next-line security/no-low-level-calls, indentation
-        require(_spender.call(bytes4(bytes32(keccak256("receiveApproval(address,uint256,address,bytes)"))),
-            msg.sender, _value, this, _extraData), "receiveApproval failed");
+        (bool success, ) = _spender.call(
+            abi.encodeWithSignature("receiveApproval(address,uint256,address,bytes)", msg.sender, _value, address(this), _extraData));
+        require(success, "receiveApproval failed");
         return true;
     }
 }

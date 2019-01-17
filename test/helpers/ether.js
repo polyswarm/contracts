@@ -1,3 +1,6 @@
+const ethers = require('ethers');
+
 export default function ether (n) {
-  return new web3.BigNumber(web3.toWei(n, 'ether'));
+  const val = web3.utils.toWei(n.toString(), 'ether');
+  return new web3.utils.toBN(val);
 }

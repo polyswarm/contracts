@@ -1,13 +1,14 @@
-pragma solidity ^0.4.21;
+pragma solidity ^0.5.0;
 
-import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
-import "zeppelin-solidity/contracts/math/SafeMath.sol";
-import "zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
 import "./ArbiterStaking.sol";
 import "./NectarToken.sol";
 
 
-contract BountyRegistry is Pausable {
+contract BountyRegistry is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
@@ -132,7 +133,7 @@ contract BountyRegistry is Pausable {
      * @param _token address of NCT token to use
      */
     constructor(address _token, address _arbiterStaking, uint256 _arbiterVoteWindow) Ownable() public {
-        owner = msg.sender;
+        // transferOwnership(msg.sender);
         token = NectarToken(_token);
         staking = ArbiterStaking(_arbiterStaking);
         arbiterVoteWindow = _arbiterVoteWindow;
@@ -200,10 +201,10 @@ contract BountyRegistry is Pausable {
     function postBounty(
         uint128 guid,
         uint256 amount,
-        string artifactURI,
+        string calldata artifactURI,
         uint256 numArtifacts,
         uint256 durationBlocks,
-        uint256[8] bloom
+        uint256[8] calldata bloom
     )
     external
     whenNotPaused
@@ -305,7 +306,7 @@ contract BountyRegistry is Pausable {
     }
 
     // https://ethereum.stackexchange.com/questions/4170/how-to-convert-a-uint-to-bytes-in-solidity
-    function uint256_to_bytes(uint256 x) internal pure returns (bytes b) {
+    function uint256_to_bytes(uint256 x) internal pure returns (bytes memory b) {
         b = new bytes(32);
         // solium-disable-next-line security/no-inline-assembly
         assembly { mstore(add(b, 32), x) }
@@ -327,7 +328,7 @@ contract BountyRegistry is Pausable {
         uint256 assertionId,
         uint256 nonce,
         uint256 verdicts,
-        string metadata
+        string calldata metadata
     )
         external
         whenNotPaused
@@ -414,7 +415,7 @@ contract BountyRegistry is Pausable {
         arbiterVoteRegistryByGuid[bountyGuid][msg.sender] = true;
         uint256 tempQuorumMask = 0;
         uint256 quorumCount = 0;
-        mapping (uint256 => uint256) quorumVotes = quorumVotesByGuid[bountyGuid];
+        mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
         for (uint256 i = 0; i < bounty.numArtifacts; i++) {
 
             if (bounty.quorumMask != 0 && (bounty.quorumMask & (1 << i) != 0)) {
@@ -470,12 +471,12 @@ contract BountyRegistry is Pausable {
     )
         public
         view
-        returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] expertRewards)
+        returns (uint256 bountyRefund, uint256 arbiterReward, uint256[] memory expertRewards)
     {
         Bounty storage bounty = bountiesByGuid[bountyGuid];
         Assertion[] storage assertions = assertionsByGuid[bountyGuid];
         Vote[] storage votes = votesByGuid[bountyGuid];
-        mapping (uint256 => uint256) quorumVotes = quorumVotesByGuid[bountyGuid];
+        mapping (uint256 => uint256) storage quorumVotes = quorumVotesByGuid[bountyGuid];
 
         // Check if this bountiesByGuid[bountyGuid] has been initialized
         require(bounty.author != address(0), "Bounty has not been initialized");
@@ -512,9 +513,9 @@ contract BountyRegistry is Pausable {
             for (i = 0; i < bounty.numArtifacts; i++) {
                 ap = ArtifactPot({numWinners: 0, numLosers: 0, winnerPool: 0, loserPool: 0});
                 bool consensus = quorumVotes[i].mul(MALICIOUS_VOTE_COEFFICIENT) >= votes.length.sub(quorumVotes[i]).mul(BENIGN_VOTE_COEFFICIENT);
+                bool malicious;
 
                 for (j = 0; j < assertions.length; j++) {
-                    bool malicious;
 
                     // If we didn't assert on this artifact
                     if (assertions[j].mask & (1 << i) == 0) {
@@ -757,7 +758,7 @@ contract BountyRegistry is Pausable {
      *
      * @param bountyGuid the guid of the bounty
      */
-    function getVoters(uint128 bountyGuid) external view returns (address[]) {
+    function getVoters(uint128 bountyGuid) external view returns (address[] memory) {
         require(bountiesByGuid[bountyGuid].author != address(0), "Bounty has not been initialized");
 
         Vote[] memory votes = votesByGuid[bountyGuid];
@@ -784,10 +785,13 @@ contract BountyRegistry is Pausable {
      *
      * @return sorted array of most active bounty posters
      */
-    function getArbiterCandidates() external view returns (address[]) {
+    function getArbiterCandidates() external view returns (address[] memory) {
         require(bountyGuids.length > 0, "No bounties have been placed");
 
         uint256 count = 0;
+        uint256 i = 0;
+        uint256 j = 0;
+
         Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
 
         uint256 lastBounty = 0;
@@ -795,10 +799,10 @@ contract BountyRegistry is Pausable {
             lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
         }
 
-        for (uint256 i = bountyGuids.length; i > lastBounty; i--) {
+        for (i = bountyGuids.length; i > lastBounty; i--) {
             address addr = bountiesByGuid[bountyGuids[i.sub(1)]].author;
             bool found = false;
-            for (uint256 j = 0; j < count; j++) {
+            for (j = 0; j < count; j++) {
                 if (candidates[j].addr == addr) {
                     candidates[j].count = candidates[j].count.add(1);
                     found = true;
@@ -817,8 +821,6 @@ contract BountyRegistry is Pausable {
         for (i = 0; i < ret.length; i++) {
             uint256 next = 0;
             uint256 value = candidates[0].count;
-
-
 
             for (j = 0; j < count; j++) {
                 if (candidates[j].count > value) {
@@ -851,7 +853,7 @@ contract BountyRegistry is Pausable {
      * or not they were active in 90% of bounty votes
      */
 
-    function getActiveArbiters() external view returns (address[], bool[]) {
+    function getActiveArbiters() external view returns (address[] memory, bool[] memory) {
         require(bountyGuids.length > 0, "No bounties have been placed");
         uint256 count = 0;
         uint256 threshold = bountyGuids.length.div(10).mul(9);
@@ -861,15 +863,18 @@ contract BountyRegistry is Pausable {
         Candidate[] memory candidates = new Candidate[](ARBITER_LOOKBACK_RANGE);
 
         uint256 lastBounty = 0;
+        uint256 i = 0;
+        uint256 j = 0;
+
         if (bountyGuids.length > ARBITER_LOOKBACK_RANGE) {
             lastBounty = bountyGuids.length.sub(ARBITER_LOOKBACK_RANGE);
             threshold = lastBounty.div(10).mul(9);
         }
 
-        for (uint256 i = bountyGuids.length.sub(1); i > lastBounty; i--) {
+        for (i = bountyGuids.length.sub(1); i > lastBounty; i--) {
             Vote[] memory votes = votesByGuid[bountyGuids[i]];
 
-            for (uint256 j = 0; j < votes.length; j++) {
+            for (j = 0; j < votes.length; j++) {
                 bool found = false;
                 address addr = votes[j].author;
 

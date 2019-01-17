@@ -1,12 +1,14 @@
-pragma solidity ^0.4.21;
+pragma solidity ^0.5.0;
 
-import "zeppelin-solidity/contracts/math/SafeMath.sol";
-import "zeppelin-solidity/contracts/lifecycle/Pausable.sol";
-import "zeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
+import "openzeppelin-solidity/contracts/math/SafeMath.sol";
+import "openzeppelin-solidity/contracts/lifecycle/Pausable.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/SafeERC20.sol";
+import "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 import "./NectarToken.sol";
 import "./BountyRegistry.sol";
 
-contract ArbiterStaking is Pausable {
+
+contract ArbiterStaking is Pausable, Ownable {
     using SafeMath for uint256;
     using SafeERC20 for NectarToken;
 
@@ -85,7 +87,7 @@ contract ArbiterStaking is Pausable {
         address _from,
         uint256 _value,
         address _tokenContract,
-        bytes
+        bytes memory
     )
         public
         whenNotPaused
@@ -99,7 +101,7 @@ contract ArbiterStaking is Pausable {
         address _from,
         uint256 _value,
         address _tokenContract,
-        bytes
+        bytes memory
     )
         internal
         whenNotPaused
@@ -113,7 +115,7 @@ contract ArbiterStaking is Pausable {
         // Ensure that we are not staking more than the maximum
         require(balanceOf(_from).add(_value) <= MAXIMUM_STAKE, "Value greater than maximum stake");
 
-        token.safeTransferFrom(_from, this, _value);
+        token.safeTransferFrom(_from, address(this), _value);
         deposits[_from].push(Deposit(block.number, _value));
         emit NewDeposit(_from, _value);
 
@@ -126,7 +128,7 @@ contract ArbiterStaking is Pausable {
      * @param value The amount of NCT to deposit
      */
     function deposit(uint256 value) public whenNotPaused {
-        require(receiveApprovalInternal(msg.sender, value, token, new bytes(0)), "Depositing stake failed");
+        require(receiveApprovalInternal(msg.sender, value, address(token), new bytes(0)), "Depositing stake failed");
     }
 
     /**
@@ -178,9 +180,10 @@ contract ArbiterStaking is Pausable {
         Deposit[] storage ds = deposits[msg.sender];
 
         require(value <= withdrawableBalanceOf(msg.sender), "Value exceeds withdrawable balance");
-
+        uint256 end = 0;
+        uint256 i = 0;
         // Determine which deposits we will modifiy
-        for (uint256 end = 0; end < ds.length; end++) {
+        for (end = 0; end < ds.length; end++) {
             if (ds[end].blockNumber <= latest_block) {
                 if (ds[end].value >= remaining) {
                     ds[end].value = ds[end].value.sub(remaining);
@@ -202,7 +205,7 @@ contract ArbiterStaking is Pausable {
         require(remaining == 0, "Value exceeds withdrawable balance");
 
         // Delete the obsolete deposits
-        for (uint256 i = 0; i < ds.length.sub(end); i++) {
+        for (i = 0; i < ds.length.sub(end); i++) {
             ds[i] = ds[i.add(end)];
         }
 
