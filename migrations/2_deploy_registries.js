@@ -2,6 +2,7 @@ const NectarToken = artifacts.require('NectarToken');
 const ArbiterStaking = artifacts.require('ArbiterStaking');
 const BountyRegistry = artifacts.require('BountyRegistry');
 const OfferRegistry = artifacts.require('OfferRegistry');
+const WorkerDescriptionRegistry = artifacts.require('WorkerDescriptionRegistry');
 
 module.exports = function(deployer, network, accounts) {
   if (network === 'mainnet') {
@@ -33,6 +34,8 @@ module.exports = function(deployer, network, accounts) {
       await contractInstance.methods.setBountyRegistry(BountyRegistry.address);
     }).then(() => {
       return deployer.deploy(OfferRegistry, NectarToken.address);
+    }).then(() => {
+      return deployer.deploy(WorkerDescriptionRegistry);
     });
   }
 };
